@@ -4,51 +4,46 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
-  CreditCard,
-  History,
+  FolderTree,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
-  Receipt,
-  Settings,
+  ScrollText,
   Shield,
+  Ticket,
+  Users,
+  Wallet,
   X,
 } from "lucide-react";
 import { useState } from "react";
 
 import { logoutAction } from "@/features/auth/actions";
-import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { APP_NAME } from "@/lib/constants";
-import type { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { href: "/dashboard/billing", label: "Billing", icon: Receipt },
-  { href: "/dashboard/payments", label: "Payments", icon: History },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-  {
-    href: "/dashboard/settings/notifications",
-    label: "Notifications",
-    icon: Settings,
-  },
-  { href: "/admin", label: "Admin", icon: Shield },
+  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/invites", label: "Invite codes", icon: Ticket },
+  { href: "/admin/payments", label: "Payments", icon: Wallet },
+  { href: "/admin/categories", label: "Categories", icon: FolderTree },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/logs", label: "Activity logs", icon: ScrollText },
+  { href: "/admin/emails", label: "Email history", icon: Mail },
 ];
 
-export function DashboardShell({
+export function AdminShell({
   children,
+  adminEmail,
   isDemo = false,
-  notifications = [],
-  unreadCount = 0,
 }: {
   children: React.ReactNode;
+  adminEmail: string;
   isDemo?: boolean;
-  notifications?: Notification[];
-  unreadCount?: number;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -57,11 +52,10 @@ export function DashboardShell({
     <nav className="flex flex-col gap-1">
       {navItems.map((item) => {
         const active =
-          item.href === "/dashboard"
-            ? pathname === "/dashboard"
+          item.href === "/admin"
+            ? pathname === "/admin"
             : pathname.startsWith(item.href);
         const Icon = item.icon;
-
         return (
           <Link
             key={item.href}
@@ -76,11 +70,6 @@ export function DashboardShell({
           >
             <Icon className="size-4" />
             {item.label}
-            {item.href.includes("notifications") && unreadCount > 0 && (
-              <span className="ml-auto rounded-full bg-cyan-400/20 px-1.5 py-0.5 text-[10px] text-cyan-200">
-                {unreadCount}
-              </span>
-            )}
           </Link>
         );
       })}
@@ -90,26 +79,23 @@ export function DashboardShell({
   return (
     <div className="min-h-svh bg-background">
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -left-24 top-0 size-[28rem] rounded-full bg-cyan-500/10 blur-[120px]" />
-        <div className="absolute right-0 top-40 size-[22rem] rounded-full bg-teal-500/10 blur-[100px]" />
+        <div className="absolute top-0 left-0 size-[26rem] rounded-full bg-teal-500/10 blur-[120px]" />
+        <div className="absolute right-0 bottom-0 size-[22rem] rounded-full bg-cyan-500/10 blur-[100px]" />
       </div>
 
       <header className="sticky top-0 z-40 border-b border-white/10 bg-background/70 backdrop-blur-xl lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-teal-600">
-              <span className="font-display text-xs font-bold text-black">D</span>
-            </span>
-            <span className="font-display font-semibold">{APP_NAME}</span>
+          <Link href="/admin" className="inline-flex items-center gap-2">
+            <Shield className="size-4 text-cyan-300" />
+            <span className="font-display font-semibold">{APP_NAME} Admin</span>
           </Link>
           <div className="flex items-center gap-1">
-            <NotificationBell items={notifications} unreadCount={unreadCount} />
             <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Open menu"
               onClick={() => setOpen((v) => !v)}
+              aria-label="Open menu"
             >
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
             </Button>
@@ -123,40 +109,36 @@ export function DashboardShell({
       </header>
 
       <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:px-8">
-        <aside className="hidden w-60 shrink-0 lg:block">
+        <aside className="hidden w-64 shrink-0 lg:block">
           <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
-            <div className="mb-6 flex items-center justify-between gap-2 px-1">
-              <Link href="/dashboard" className="inline-flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600">
-                  <span className="font-display text-sm font-bold text-black">D</span>
-                </span>
-                <span className="font-display text-lg font-semibold">{APP_NAME}</span>
-              </Link>
-              <NotificationBell items={notifications} unreadCount={unreadCount} />
-            </div>
-
+            <Link href="/admin" className="mb-2 inline-flex items-center gap-2 px-1">
+              <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600">
+                <Shield className="size-4 text-black" />
+              </span>
+              <span className="font-display text-lg font-semibold">Admin</span>
+            </Link>
+            <p className="mb-5 px-1 text-xs text-muted-foreground">{adminEmail}</p>
             <Nav />
-
             <Separator className="my-4 bg-white/10" />
-
             <div className="flex items-center justify-between gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard">User app</Link>
+              </Button>
               <ThemeToggle />
-              <form action={logoutAction}>
-                <Button variant="outline" size="sm" type="submit">
-                  <LogOut className="size-4" />
-                  Sign out
-                </Button>
-              </form>
             </div>
-
+            <form action={logoutAction} className="mt-3">
+              <Button variant="ghost" size="sm" type="submit" className="w-full justify-start">
+                <LogOut className="size-4" />
+                Sign out
+              </Button>
+            </form>
             {isDemo && (
               <p className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-[11px] leading-relaxed text-cyan-100/90">
-                Demo mode — data is local until Supabase is connected.
+                Demo admin mode — all tools are available without Supabase auth.
               </p>
             )}
           </div>
         </aside>
-
         <main className="min-w-0 flex-1 pb-10">{children}</main>
       </div>
     </div>

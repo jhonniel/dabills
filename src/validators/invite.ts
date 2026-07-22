@@ -3,7 +3,7 @@ import { z } from "zod";
 export const inviteCodeSchema = z.object({
   code: z.string().trim().min(6).max(64),
   maxUses: z.number().int().positive().nullable().optional(),
-  expiresAt: z.string().datetime().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
   note: z.string().max(500).nullable().optional(),
   isActive: z.boolean().optional(),
 });

@@ -1,0 +1,231 @@
+import { cookies } from "next/headers";
+
+import { DEMO_CATEGORIES } from "@/lib/billing/demo-data";
+import type {
+  ActivityLog,
+  Category,
+  InviteCode,
+  Profile,
+} from "@/types";
+
+const USERS_COOKIE = "dabills_demo_admin_users";
+const INVITES_COOKIE = "dabills_demo_admin_invites";
+const ACTIVITY_COOKIE = "dabills_demo_activity_logs";
+const CATEGORIES_COOKIE = "dabills_demo_admin_categories";
+
+export type AdminUser = Profile & {
+  subscriptions_count?: number;
+  status?: "active" | "disabled";
+};
+
+function seedUsers(): AdminUser[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: "demo-admin",
+      email: "admin@dabills.app",
+      full_name: "DaBills Admin",
+      avatar_url: null,
+      role: "admin",
+      plan_id: null,
+      timezone: "UTC",
+      notification_email: true,
+      notification_in_app: true,
+      created_at: now,
+      updated_at: now,
+      subscriptions_count: 0,
+      status: "active",
+    },
+    {
+      id: "demo-user",
+      email: "jordan@example.com",
+      full_name: "Jordan Lee",
+      avatar_url: null,
+      role: "user",
+      plan_id: null,
+      timezone: "Asia/Manila",
+      notification_email: true,
+      notification_in_app: true,
+      created_at: now,
+      updated_at: now,
+      subscriptions_count: 8,
+      status: "active",
+    },
+    {
+      id: "demo-user-2",
+      email: "sam@example.com",
+      full_name: "Sam Rivera",
+      avatar_url: null,
+      role: "user",
+      plan_id: null,
+      timezone: "UTC",
+      notification_email: false,
+      notification_in_app: true,
+      created_at: now,
+      updated_at: now,
+      subscriptions_count: 3,
+      status: "active",
+    },
+    {
+      id: "demo-user-3",
+      email: "alex@example.com",
+      full_name: "Alex Kim",
+      avatar_url: null,
+      role: "user",
+      plan_id: null,
+      timezone: "America/New_York",
+      notification_email: true,
+      notification_in_app: true,
+      created_at: now,
+      updated_at: now,
+      subscriptions_count: 12,
+      status: "disabled",
+    },
+  ];
+}
+
+function seedInvites(): InviteCode[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: "invite-1",
+      code: "DABILLS-DEMO",
+      created_by: "demo-admin",
+      max_uses: 100,
+      uses_count: 12,
+      expires_at: null,
+      is_active: true,
+      note: "Phase 1 demo invite",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "invite-2",
+      code: "FAMILY-2026",
+      created_by: "demo-admin",
+      max_uses: 5,
+      uses_count: 5,
+      expires_at: null,
+      is_active: false,
+      note: "Family pack — exhausted",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "invite-3",
+      code: "BETA-LAUNCH",
+      created_by: "demo-admin",
+      max_uses: 50,
+      uses_count: 8,
+      expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+      is_active: true,
+      note: "Beta cohort",
+      created_at: now,
+      updated_at: now,
+    },
+  ];
+}
+
+function seedActivity(): ActivityLog[] {
+  const now = Date.now();
+  return [
+    {
+      id: "act-1",
+      user_id: "demo-user",
+      actor_id: "demo-admin",
+      action: "payment.approved",
+      entity_type: "payment",
+      entity_id: null,
+      metadata: { note: "Approved Netflix receipt" },
+      ip_address: "127.0.0.1",
+      user_agent: "DaBills Admin",
+      created_at: new Date(now - 1000 * 60 * 20).toISOString(),
+    },
+    {
+      id: "act-2",
+      user_id: null,
+      actor_id: "demo-admin",
+      action: "invite.created",
+      entity_type: "invite_code",
+      entity_id: "invite-3",
+      metadata: { code: "BETA-LAUNCH" },
+      ip_address: "127.0.0.1",
+      user_agent: "DaBills Admin",
+      created_at: new Date(now - 1000 * 60 * 60 * 3).toISOString(),
+    },
+    {
+      id: "act-3",
+      user_id: "demo-user-2",
+      actor_id: "demo-admin",
+      action: "user.role_updated",
+      entity_type: "profile",
+      entity_id: "demo-user-2",
+      metadata: { role: "user" },
+      ip_address: "127.0.0.1",
+      user_agent: "DaBills Admin",
+      created_at: new Date(now - 1000 * 60 * 60 * 8).toISOString(),
+    },
+  ];
+}
+
+async function readJsonCookie<T>(name: string, fallback: T): Promise<T> {
+  const store = await cookies();
+  const raw = store.get(name)?.value;
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(decodeURIComponent(raw)) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeJsonCookie<T>(name: string, value: T) {
+  const store = await cookies();
+  store.set(name, encodeURIComponent(JSON.stringify(value)), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+}
+
+export async function readAdminUsers() {
+  return readJsonCookie(USERS_COOKIE, seedUsers());
+}
+
+export async function writeAdminUsers(users: AdminUser[]) {
+  await writeJsonCookie(USERS_COOKIE, users);
+}
+
+export async function readAdminInvites() {
+  return readJsonCookie(INVITES_COOKIE, seedInvites());
+}
+
+export async function writeAdminInvites(invites: InviteCode[]) {
+  await writeJsonCookie(INVITES_COOKIE, invites);
+}
+
+export async function readAdminCategories() {
+  return readJsonCookie(CATEGORIES_COOKIE, DEMO_CATEGORIES);
+}
+
+export async function writeAdminCategories(categories: Category[]) {
+  await writeJsonCookie(CATEGORIES_COOKIE, categories);
+}
+
+export async function readActivityLogs() {
+  return readJsonCookie(ACTIVITY_COOKIE, seedActivity());
+}
+
+export async function appendActivityLog(
+  entry: Omit<ActivityLog, "id" | "created_at">
+) {
+  const items = await readActivityLogs();
+  const created: ActivityLog = {
+    ...entry,
+    id: crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+  };
+  await writeJsonCookie(ACTIVITY_COOKIE, [created, ...items].slice(0, 200));
+  return created;
+}

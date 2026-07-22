@@ -2,7 +2,7 @@
 
 Modern subscription and recurring billing management — track Netflix, Spotify, utilities, SaaS, gym memberships, and more in one premium dashboard.
 
-> **Phase 5 — Notifications** is complete. Later phases add admin portal and production hardening.
+> **Phase 6 — Admin Portal** is complete. Phase 7 covers polish, security hardening, and production docs.
 
 ## Stack
 
@@ -38,6 +38,7 @@ Modern subscription and recurring billing management — track Netflix, Spotify,
 - In-app notification center + preference controls
 - Reminder emails (5d / 3d / 1d / due today / overdue) via Resend
 - Payment received / approved email templates + delivery log
+- Admin portal for users, invites, payment approvals, categories, analytics, and audit logs
 
 ## Getting started
 
@@ -125,8 +126,8 @@ Without Supabase credentials, the UI still loads; invite validation falls back t
 | 2 | User dashboard + subscription CRUD + charts |
 | 3 | Recurring billing engine |
 | 4 | Payments + OCR |
-| 5 | Notifications + email reminders (this release) |
-| 6 | Admin portal |
+| 5 | Notifications + email reminders |
+| 6 | Admin portal (this release) |
 | 7 | Polish, security hardening, deployment docs |
 
 ## License
