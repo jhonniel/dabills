@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { enforceMutationGuard } from "@/lib/security/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -30,6 +31,13 @@ function ensureConfigured(): ActionResult | null {
 export async function loginAction(
   input: LoginInput
 ): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "auth:login",
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const configError = ensureConfigured();
   if (configError) return configError;
 
@@ -54,6 +62,13 @@ export async function loginAction(
 export async function registerAction(
   input: RegisterInput
 ): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "auth:register",
+    limit: 5,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const configError = ensureConfigured();
   if (configError) return configError;
 

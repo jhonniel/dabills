@@ -12,6 +12,8 @@ import {
   type DemoPaymentRecord,
 } from "@/lib/payments/demo-store";
 import { storeReceipt } from "@/lib/payments/storage";
+import { enforceMutationGuard } from "@/lib/security/guards";
+import { sanitizePlainText } from "@/lib/security/request";
 import { runOcrExtraction } from "@/services/ocr/provider";
 import { validateOcrAgainstBill } from "@/services/ocr/validate";
 import { createClient } from "@/lib/supabase/server";
@@ -51,10 +53,21 @@ export async function settleBillAction(formData: FormData): Promise<
     };
   }>
 > {
+  const guard = await enforceMutationGuard({
+    action: "payments:settle",
+    limit: 15,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const parsed = settleBillSchema.safeParse({
     billingCycleId: formData.get("billingCycleId"),
-    referenceNumber: formData.get("referenceNumber") || undefined,
-    notes: formData.get("notes") || undefined,
+    referenceNumber: formData.get("referenceNumber")
+      ? sanitizePlainText(String(formData.get("referenceNumber")), 120)
+      : undefined,
+    notes: formData.get("notes")
+      ? sanitizePlainText(String(formData.get("notes")), 2000)
+      : undefined,
     forceMismatch: formData.get("forceMismatch") === "true",
   });
 
@@ -330,14 +343,24 @@ export async function reviewPaymentAction(input: {
   decision: "approved" | "rejected";
   rejectionReason?: string;
 }): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "payments:review",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const now = new Date().toISOString();
+  const rejectionReason = input.rejectionReason
+    ? sanitizePlainText(input.rejectionReason, 500)
+    : undefined;
 
   if (!isSupabaseConfigured()) {
     const updated = await updateDemoPayment(input.paymentId, {
       status: input.decision,
       reviewed_at: now,
       rejection_reason:
-        input.decision === "rejected" ? input.rejectionReason ?? "Rejected" : null,
+        input.decision === "rejected" ? rejectionReason ?? "Rejected" : null,
       paid_at: input.decision === "approved" ? now : null,
     });
 
@@ -362,7 +385,7 @@ export async function reviewPaymentAction(input: {
       status: input.decision,
       reviewed_at: now,
       rejection_reason:
-        input.decision === "rejected" ? input.rejectionReason ?? "Rejected" : null,
+        input.decision === "rejected" ? rejectionReason ?? "Rejected" : null,
       paid_at: input.decision === "approved" ? now : null,
     });
     if (!updated) return { success: false, error: "Payment not found" };
@@ -391,7 +414,7 @@ export async function reviewPaymentAction(input: {
       reviewed_by: user.id,
       reviewed_at: now,
       rejection_reason:
-        input.decision === "rejected" ? input.rejectionReason ?? "Rejected" : null,
+        input.decision === "rejected" ? rejectionReason ?? "Rejected" : null,
       paid_at: input.decision === "approved" ? now : null,
     })
     .eq("id", input.paymentId);

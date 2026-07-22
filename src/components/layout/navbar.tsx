@@ -75,7 +75,9 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Open menu"
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="mobile-nav"
               onClick={() => setOpen((v) => !v)}
             >
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -84,14 +86,19 @@ export function Navbar() {
         </motion.nav>
 
         {open && (
-          <div className="mt-2 rounded-2xl border border-white/10 bg-background/90 p-4 backdrop-blur-xl md:hidden">
+          <div
+            id="mobile-nav"
+            role="navigation"
+            aria-label="Mobile"
+            className="mt-2 rounded-2xl border border-white/10 bg-background/90 p-4 backdrop-blur-xl md:hidden"
+          >
             <div className="flex flex-col gap-3">
               {links.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="text-sm text-muted-foreground"
+                  className="rounded-md text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {link.label}
                 </Link>

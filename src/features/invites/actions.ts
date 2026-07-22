@@ -1,6 +1,7 @@
 "use server";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { enforceMutationGuard } from "@/lib/security/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { InviteCode, Profile } from "@/types";
@@ -13,6 +14,13 @@ export type InviteValidationResult =
 export async function validateInviteCodeAction(
   code: string
 ): Promise<InviteValidationResult> {
+  const guard = await enforceMutationGuard({
+    action: "invites:validate",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { valid: false, error: guard.error };
+
   if (!isSupabaseConfigured()) {
     if (code.trim().toUpperCase() === "DABILLS-DEMO") {
       return { valid: true };

@@ -13,6 +13,7 @@ import {
   writeAdminUsers,
 } from "@/lib/admin/demo-store";
 import { isSupabaseConfigured } from "@/lib/env";
+import { enforceMutationGuard } from "@/lib/security/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Category, InviteCode, UserRole } from "@/types";
 import { inviteCodeSchema } from "@/validators/invite";
@@ -38,6 +39,13 @@ export async function adminCreateInviteAction(input: {
   expiresAt?: string | null;
   note?: string | null;
 }): Promise<ActionResult<InviteCode>> {
+  const guard = await enforceMutationGuard({
+    action: "admin:invite-create",
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const session = await requireAdmin();
   const parsed = inviteCodeSchema.safeParse({
     code: input.code,
@@ -159,6 +167,13 @@ export async function adminUpdateUserRoleAction(
   userId: string,
   role: UserRole
 ): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "admin:role-update",
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const session = await requireAdmin();
   const users = await readAdminUsers();
   const next = users.map((user) =>

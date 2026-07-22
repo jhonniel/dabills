@@ -139,7 +139,9 @@ export function AdminShell({
             )}
           </div>
         </aside>
-        <main className="min-w-0 flex-1 pb-10">{children}</main>
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 pb-10 outline-none">
+          {children}
+        </main>
       </div>
     </div>
   );
