@@ -267,6 +267,22 @@ export async function settleBillAction(formData: FormData): Promise<
 
   revalidatePaymentPaths(bill.id);
 
+  try {
+    const { notifyPaymentReceivedAction } = await import(
+      "@/features/notifications/actions"
+    );
+    await notifyPaymentReceivedAction({
+      userId,
+      email: userId === "demo-user" ? "demo@dabills.app" : undefined,
+      subscriptionName: merchantName ?? "Subscription",
+      amount: Number(bill.amount),
+      currency: bill.currency,
+      reference,
+    });
+  } catch (error) {
+    console.error("notifyPaymentReceivedAction", error);
+  }
+
   return {
     success: true,
     data: {
@@ -283,6 +299,30 @@ export async function settleBillAction(formData: FormData): Promise<
       },
     },
   };
+}
+
+async function maybeNotifyPaymentDecision(payment: {
+  user_id: string;
+  amount: number;
+  currency: string;
+  subscription_name?: string | null;
+  status: string;
+}) {
+  if (payment.status !== "approved") return;
+  try {
+    const { notifyPaymentApprovedAction } = await import(
+      "@/features/notifications/actions"
+    );
+    await notifyPaymentApprovedAction({
+      userId: payment.user_id,
+      email: payment.user_id === "demo-user" ? "demo@dabills.app" : undefined,
+      subscriptionName: payment.subscription_name ?? "Subscription",
+      amount: Number(payment.amount),
+      currency: payment.currency,
+    });
+  } catch (error) {
+    console.error("notifyPaymentApprovedAction", error);
+  }
 }
 
 export async function reviewPaymentAction(input: {
@@ -305,6 +345,7 @@ export async function reviewPaymentAction(input: {
 
     if (input.decision === "approved") {
       await updateDemoBillStatus(updated.billing_cycle_id, "paid");
+      await maybeNotifyPaymentDecision(updated);
     }
 
     revalidatePaymentPaths(updated.billing_cycle_id);
@@ -327,6 +368,7 @@ export async function reviewPaymentAction(input: {
     if (!updated) return { success: false, error: "Payment not found" };
     if (input.decision === "approved") {
       await updateDemoBillStatus(updated.billing_cycle_id, "paid");
+      await maybeNotifyPaymentDecision(updated);
     }
     revalidatePaymentPaths(updated.billing_cycle_id);
     return { success: true };
@@ -361,6 +403,14 @@ export async function reviewPaymentAction(input: {
       .from("billing_cycles")
       .update({ status: "paid", paid_at: now })
       .eq("id", (payment as Payment).billing_cycle_id);
+
+    await maybeNotifyPaymentDecision({
+      user_id: (payment as Payment).user_id,
+      amount: Number((payment as Payment).amount),
+      currency: (payment as Payment).currency,
+      subscription_name: (payment as Payment).merchant,
+      status: "approved",
+    });
   }
 
   await updateDemoPayment(input.paymentId, {

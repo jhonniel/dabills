@@ -10,15 +10,18 @@ import {
   LogOut,
   Menu,
   Receipt,
+  Settings,
   X,
 } from "lucide-react";
 import { useState } from "react";
 
 import { logoutAction } from "@/features/auth/actions";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { APP_NAME } from "@/lib/constants";
+import type { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -27,14 +30,23 @@ const navItems = [
   { href: "/dashboard/billing", label: "Billing", icon: Receipt },
   { href: "/dashboard/payments", label: "Payments", icon: History },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  {
+    href: "/dashboard/settings/notifications",
+    label: "Notifications",
+    icon: Settings,
+  },
 ];
 
 export function DashboardShell({
   children,
   isDemo = false,
+  notifications = [],
+  unreadCount = 0,
 }: {
   children: React.ReactNode;
   isDemo?: boolean;
+  notifications?: Notification[];
+  unreadCount?: number;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -62,6 +74,11 @@ export function DashboardShell({
           >
             <Icon className="size-4" />
             {item.label}
+            {item.href.includes("notifications") && unreadCount > 0 && (
+              <span className="ml-auto rounded-full bg-cyan-400/20 px-1.5 py-0.5 text-[10px] text-cyan-200">
+                {unreadCount}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -84,6 +101,7 @@ export function DashboardShell({
             <span className="font-display font-semibold">{APP_NAME}</span>
           </Link>
           <div className="flex items-center gap-1">
+            <NotificationBell items={notifications} unreadCount={unreadCount} />
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -105,12 +123,15 @@ export function DashboardShell({
       <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:px-8">
         <aside className="hidden w-60 shrink-0 lg:block">
           <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
-            <Link href="/dashboard" className="mb-6 inline-flex items-center gap-2 px-1">
-              <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600">
-                <span className="font-display text-sm font-bold text-black">D</span>
-              </span>
-              <span className="font-display text-lg font-semibold">{APP_NAME}</span>
-            </Link>
+            <div className="mb-6 flex items-center justify-between gap-2 px-1">
+              <Link href="/dashboard" className="inline-flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600">
+                  <span className="font-display text-sm font-bold text-black">D</span>
+                </span>
+                <span className="font-display text-lg font-semibold">{APP_NAME}</span>
+              </Link>
+              <NotificationBell items={notifications} unreadCount={unreadCount} />
+            </div>
 
             <Nav />
 
