@@ -1,5 +1,9 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# DaBills
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+## Phase status
+- Phase 1 (Foundation): complete
+- Phase 2+: pending
+
+## Local notes
+- Demo invite code after migrations: `DABILLS-DEMO`
+- Copy `.env.example` → `.env.local` before wiring Supabase

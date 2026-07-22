@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DaBills
 
-## Getting Started
+Modern subscription and recurring billing management — track Netflix, Spotify, utilities, SaaS, gym memberships, and more in one premium dashboard.
 
-First, run the development server:
+> **Phase 1 — Foundation** is complete. Later phases add dashboard CRUD, billing engine, OCR payments, notifications, admin portal, and production hardening.
+
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion, React Three Fiber |
+| Backend | Next.js Server Actions + API Routes |
+| Database / Auth | Supabase (PostgreSQL + Auth + Storage) |
+| Email | Resend |
+| OCR | Swappable providers (`OCR.space` / Google Vision ready) |
+| Hosting | Vercel + Supabase |
+
+## Features (Phase 1)
+
+- Futuristic landing page with 3D hero, animated stats, and infinite subscription carousel
+- Dark-first theme system (dark / light / system)
+- Invite-code-only registration
+- Supabase Auth (login / register / session middleware)
+- Full database schema + RLS policies
+- Enterprise folder structure (features, services, validators, emails)
+- Swappable OCR provider architecture
+- Resend email client + invite template
+
+## Getting started
+
+### 1. Install
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+### 2. Configure environment
+
+Fill in `.env.local`:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RESEND_API_KEY` / `RESEND_FROM_EMAIL` (optional until Phase 5)
+- `OCR_PROVIDER` / `OCR_SPACE_API_KEY` (optional until Phase 4)
+
+### 3. Apply database migrations
+
+In the Supabase SQL editor (or via Supabase CLI), run in order:
+
+1. `supabase/migrations/001_initial_schema.sql`
+2. `supabase/migrations/002_rls_policies.sql`
+
+This seeds:
+
+- Plans (Starter → Enterprise)
+- Categories (Streaming, Internet, …)
+- Demo invite code: **`DABILLS-DEMO`**
+
+### 4. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev        # development server
+npm run build      # production build
+npm run start      # start production server
+npm run lint       # ESLint
+npm run typecheck  # TypeScript
+```
 
-## Learn More
+## Project structure
 
-To learn more about Next.js, take a look at the following resources:
+```text
+src/
+  app/                 # App Router routes (marketing, auth, dashboard, api)
+  components/          # UI, layout, landing, auth, providers
+  features/            # Feature server actions (auth, invites)
+  lib/                 # Utils, constants, env, supabase clients
+  services/            # OCR + email providers
+  emails/templates/    # HTML email templates
+  validators/          # Zod schemas
+  types/               # Shared TypeScript types
+  hooks/               # Shared React hooks
+supabase/migrations/   # SQL schema + RLS
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Authentication
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Registration requires a valid invite code that is:
 
-## Deploy on Vercel
+- Active
+- Not expired
+- Under its usage limit
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Validation and consumption are atomic via `validate_and_consume_invite()`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Without Supabase credentials, the UI still loads; invite validation falls back to `DABILLS-DEMO` for local preview.
+
+## Roadmap
+
+| Phase | Focus |
+| --- | --- |
+| 1 | Foundation (this release) |
+| 2 | User dashboard + subscription CRUD + charts |
+| 3 | Recurring billing engine |
+| 4 | Payments + OCR |
+| 5 | Notifications + email reminders |
+| 6 | Admin portal |
+| 7 | Polish, security hardening, deployment docs |
+
+## License
+
+Private — all rights reserved.
