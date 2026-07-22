@@ -2,7 +2,7 @@
 
 Modern subscription and recurring billing management — track Netflix, Spotify, utilities, SaaS, gym memberships, and more in one premium dashboard.
 
-> **Phase 1 — Foundation** is complete. Later phases add dashboard CRUD, billing engine, OCR payments, notifications, admin portal, and production hardening.
+> **Phase 2 — User Dashboard** is complete. Later phases add billing engine, OCR payments, notifications, admin portal, and production hardening.
 
 ## Stack
 
@@ -15,7 +15,7 @@ Modern subscription and recurring billing management — track Netflix, Spotify,
 | OCR | Swappable providers (`OCR.space` / Google Vision ready) |
 | Hosting | Vercel + Supabase |
 
-## Features (Phase 1)
+## Features (Phase 1–2)
 
 - Futuristic landing page with 3D hero, animated stats, and infinite subscription carousel
 - Dark-first theme system (dark / light / system)
@@ -25,6 +25,10 @@ Modern subscription and recurring billing management — track Netflix, Spotify,
 - Enterprise folder structure (features, services, validators, emails)
 - Swappable OCR provider architecture
 - Resend email client + invite template
+- Premium dashboard overview with animated counters and charts
+- Subscription CRUD with categories, search, filter, and sort
+- Monthly/yearly expense normalization and analytics
+- Demo mode (cookie-backed) when Supabase is not configured
 
 ## Getting started
 
@@ -108,8 +112,8 @@ Without Supabase credentials, the UI still loads; invite validation falls back t
 
 | Phase | Focus |
 | --- | --- |
-| 1 | Foundation (this release) |
-| 2 | User dashboard + subscription CRUD + charts |
+| 1 | Foundation |
+| 2 | User dashboard + subscription CRUD + charts (this release) |
 | 3 | Recurring billing engine |
 | 4 | Payments + OCR |
 | 5 | Notifications + email reminders |
