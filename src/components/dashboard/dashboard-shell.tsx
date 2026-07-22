@@ -23,8 +23,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/dashboard/billing", label: "Billing", icon: Receipt },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard/billing", label: "Billing", icon: Receipt, soon: true },
 ];
 
 export function DashboardShell({
@@ -45,23 +45,6 @@ export function DashboardShell({
             ? pathname === "/dashboard"
             : pathname.startsWith(item.href);
         const Icon = item.icon;
-
-        if (item.soon) {
-          return (
-            <div
-              key={item.href}
-              className="flex items-center justify-between rounded-xl px-3 py-2 text-sm text-muted-foreground/70"
-            >
-              <span className="inline-flex items-center gap-2">
-                <Icon className="size-4" />
-                {item.label}
-              </span>
-              <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px]">
-                Soon
-              </span>
-            </div>
-          );
-        }
 
         return (
           <Link

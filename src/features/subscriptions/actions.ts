@@ -23,6 +23,7 @@ function revalidateSubscriptionPaths(id?: string) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/subscriptions");
   revalidatePath("/dashboard/analytics");
+  revalidatePath("/dashboard/billing");
   if (id) {
     revalidatePath(`/dashboard/subscriptions/${id}`);
     revalidatePath(`/dashboard/subscriptions/${id}/edit`);
@@ -88,6 +89,10 @@ export async function createSubscriptionAction(
   if (error || !data) {
     return { success: false, error: error?.message ?? "Failed to create subscription" };
   }
+
+  // Generate initial billing cycles for the new subscription (Phase 3)
+  const { generateUpcomingBillsAction } = await import("@/features/billing/actions");
+  await generateUpcomingBillsAction({ horizonDays: 120, maxCycles: 4 });
 
   revalidateSubscriptionPaths(data.id as string);
   return { success: true, data: { id: data.id as string } };

@@ -71,6 +71,8 @@ export async function createDemoSubscription(input: SubscriptionInput) {
   });
 
   await writeDemoSubscriptions([created, ...items]);
+  const { ensureDemoBillsForSubscription } = await import("@/lib/billing/demo-bills");
+  await ensureDemoBillsForSubscription(created);
   return created;
 }
 
@@ -116,6 +118,8 @@ export async function updateDemoSubscription(
 export async function deleteDemoSubscription(id: string) {
   const items = await readDemoSubscriptions();
   await writeDemoSubscriptions(items.filter((item) => item.id !== id));
+  const { deleteDemoBillsForSubscription } = await import("@/lib/billing/demo-bills");
+  await deleteDemoBillsForSubscription(id);
 }
 
 export function getDemoCategories() {
