@@ -2,7 +2,7 @@
 
 Modern subscription and recurring billing management — track Netflix, Spotify, utilities, SaaS, gym memberships, and more in one premium dashboard.
 
-> **Phase 3 — Recurring Billing Engine** is complete. Later phases add OCR payments, notifications, admin portal, and production hardening.
+> **Phase 4 — Payments & OCR** is complete. Later phases add notifications, admin portal, and production hardening.
 
 ## Stack
 
@@ -32,6 +32,9 @@ Modern subscription and recurring billing management — track Netflix, Spotify,
 - Recurring billing engine with automatic cycle generation
 - Billing page with table / cards / calendar / timeline views
 - Reminder scheduling architecture + cron-ready API routes
+- Receipt upload with swappable OCR (OCR.space / Google Vision / mock)
+- OCR validation with mismatch highlighting + pending verification workflow
+- Payment history timeline with approve/reject actions
 
 ## Getting started
 
@@ -117,8 +120,8 @@ Without Supabase credentials, the UI still loads; invite validation falls back t
 | --- | --- |
 | 1 | Foundation |
 | 2 | User dashboard + subscription CRUD + charts |
-| 3 | Recurring billing engine (this release) |
-| 4 | Payments + OCR |
+| 3 | Recurring billing engine |
+| 4 | Payments + OCR (this release) |
 | 5 | Notifications + email reminders |
 | 6 | Admin portal |
 | 7 | Polish, security hardening, deployment docs |

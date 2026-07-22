@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   CreditCard,
+  History,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/dashboard/billing", label: "Billing", icon: Receipt },
+  { href: "/dashboard/payments", label: "Payments", icon: History },
   { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
 ];
 

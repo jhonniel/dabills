@@ -27,6 +27,7 @@ function revalidateBillingPaths() {
   revalidatePath("/dashboard/billing");
   revalidatePath("/dashboard/analytics");
   revalidatePath("/dashboard/subscriptions");
+  revalidatePath("/dashboard/payments");
 }
 
 export async function generateUpcomingBillsAction(options?: {

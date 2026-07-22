@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -27,29 +28,38 @@ function BillActions({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-
-  if (status === "paid") return null;
+  const canSettle =
+    status === "upcoming" || status === "pending" || status === "overdue";
 
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="rounded-lg"
-      disabled={pending}
-      onClick={() => {
-        startTransition(async () => {
-          const result = await updateBillStatusAction(id, "paid");
-          if (!result.success) {
-            toast.error(result.error);
-            return;
-          }
-          toast.success("Marked as paid");
-          router.refresh();
-        });
-      }}
-    >
-      Mark paid
-    </Button>
+    <div className="flex flex-wrap justify-end gap-2">
+      {canSettle && (
+        <Button asChild size="sm" className="rounded-lg">
+          <Link href={`/dashboard/billing/${id}/pay`}>Settle</Link>
+        </Button>
+      )}
+      {status !== "paid" && status !== "pending_verification" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-lg"
+          disabled={pending}
+          onClick={() => {
+            startTransition(async () => {
+              const result = await updateBillStatusAction(id, "paid");
+              if (!result.success) {
+                toast.error(result.error);
+                return;
+              }
+              toast.success("Marked as paid");
+              router.refresh();
+            });
+          }}
+        >
+          Mark paid
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -75,7 +85,7 @@ export function BillsTable({ items }: { items: BillingCycleWithSubscription[] })
             <TableHead>Period</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead className="w-28" />
+            <TableHead className="w-48" />
           </TableRow>
         </TableHeader>
         <TableBody>
