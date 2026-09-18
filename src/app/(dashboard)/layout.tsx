@@ -7,7 +7,16 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { items, unreadCount } = await listNotifications();
+  let items: Awaited<ReturnType<typeof listNotifications>>["items"] = [];
+  let unreadCount = 0;
+
+  try {
+    const notifications = await listNotifications();
+    items = notifications.items;
+    unreadCount = notifications.unreadCount;
+  } catch (error) {
+    console.error("DashboardLayout listNotifications", error);
+  }
 
   return (
     <DashboardShell

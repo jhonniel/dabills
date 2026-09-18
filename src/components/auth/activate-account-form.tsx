@@ -35,7 +35,7 @@ export function ActivateAccountForm({
             return;
           }
           toast.success("Account activated");
-          router.push("/dashboard");
+          router.replace(demoToken ? "/login?activated=1" : "/dashboard");
           router.refresh();
         });
       }}

@@ -63,7 +63,7 @@ export async function loginAction(
     return { success: false, error: error.message };
   }
 
-  redirect("/dashboard");
+  return { success: true };
 }
 
 export async function registerAction(
@@ -121,7 +121,7 @@ export async function registerAction(
     return { success: false, error: error.message };
   }
 
-  redirect("/dashboard");
+  return { success: true };
 }
 
 export async function logoutAction(): Promise<void> {
@@ -165,7 +165,7 @@ export async function activateAccountAction(input: ActivateAccountInput & {
     await setDemoUserAccountStatus(user.id, "active", {
       activation_token: null,
     });
-    redirect("/login?activated=1");
+    return { success: true };
   }
 
   const configError = ensureConfigured();
@@ -196,7 +196,7 @@ export async function activateAccountAction(input: ActivateAccountInput & {
     .update({ account_status: "active" })
     .eq("id", user.id);
 
-  redirect("/dashboard");
+  return { success: true };
 }
 
 export async function getCurrentUser() {

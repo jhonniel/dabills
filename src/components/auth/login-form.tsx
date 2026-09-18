@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ const fieldClassWithToggle =
   "h-11 rounded-xl border-white/10 bg-white/[0.03] !pl-10 !pr-11 md:h-11 dark:bg-white/[0.03]";
 
 export function LoginForm() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -32,10 +34,20 @@ export function LoginForm() {
   const onSubmit = form.handleSubmit((values) => {
     setError(null);
     startTransition(async () => {
-      const result = await loginAction(values);
-      if (result && !result.success) {
-        setError(result.error);
-        toast.error(result.error);
+      try {
+        const result = await loginAction(values);
+        if (!result.success) {
+          setError(result.error);
+          toast.error(result.error);
+          return;
+        }
+        router.replace("/dashboard");
+        router.refresh();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unable to sign in";
+        setError(message);
+        toast.error(message);
       }
     });
   });
