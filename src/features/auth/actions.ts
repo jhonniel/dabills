@@ -12,6 +12,14 @@ import {
   type LoginInput,
   type RegisterInput,
 } from "@/validators/auth";
+import {
+  activateAccountSchema,
+  type ActivateAccountInput,
+} from "@/validators/admin-user";
+import {
+  readAdminUsers,
+  setDemoUserAccountStatus,
+} from "@/lib/admin/demo-store";
 
 export type ActionResult<T = undefined> =
   | { success: true; data?: T }
@@ -125,6 +133,71 @@ export async function logoutAction(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/");
+}
+
+export async function activateAccountAction(input: ActivateAccountInput & {
+  demoToken?: string | null;
+}): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "auth:activate",
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const parsed = activateAccountSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid password",
+    };
+  }
+
+  // Demo activation via emailed token
+  if (!isSupabaseConfigured() || input.demoToken) {
+    if (!input.demoToken) {
+      return { success: false, error: "Activation token is required" };
+    }
+    const users = await readAdminUsers();
+    const user = users.find((item) => item.activation_token === input.demoToken);
+    if (!user) {
+      return { success: false, error: "Invalid or expired activation link" };
+    }
+    await setDemoUserAccountStatus(user.id, "active", {
+      activation_token: null,
+    });
+    redirect("/login?activated=1");
+  }
+
+  const configError = ensureConfigured();
+  if (configError) return configError;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      error: "Open the activation link from your email first, then set a password.",
+    };
+  }
+
+  const { error: passwordError } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+  if (passwordError) {
+    return { success: false, error: passwordError.message };
+  }
+
+  const admin = createAdminClient();
+  await admin
+    .from("profiles")
+    .update({ account_status: "active" })
+    .eq("id", user.id);
+
+  redirect("/dashboard");
 }
 
 export async function getCurrentUser() {

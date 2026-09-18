@@ -1,0 +1,41 @@
+import { escapeHtml } from "@/lib/security/request";
+
+export function activationEmailHtml(params: {
+  activationUrl: string;
+  recipientName?: string;
+}) {
+  const name = escapeHtml(params.recipientName ?? "there");
+  const url = escapeHtml(params.activationUrl);
+
+  return `
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:0;background:#070b12;color:#e8eef7;font-family:Inter,Segoe UI,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+      <tr>
+        <td align="center">
+          <table width="560" cellpadding="0" cellspacing="0" style="background:#0d1420;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:32px;">
+            <tr>
+              <td>
+                <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em;">DaBills</div>
+                <p style="margin:24px 0 8px;font-size:18px;font-weight:600;">Activate your account, ${name}.</p>
+                <p style="margin:0 0 24px;color:#9aa7b8;line-height:1.6;">
+                  An admin created a DaBills account for you. Open the link below to set your password and start managing subscriptions.
+                </p>
+                <p style="margin:28px 0 0;">
+                  <a href="${url}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:linear-gradient(90deg,#22d3ee,#14b8a6);color:#041016;text-decoration:none;font-weight:700;">
+                    Activate account
+                  </a>
+                </p>
+                <p style="margin:20px 0 0;color:#6b7785;font-size:12px;line-height:1.5;">
+                  If you did not expect this email, you can ignore it.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}

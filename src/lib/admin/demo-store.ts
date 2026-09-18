@@ -2,21 +2,34 @@ import { cookies } from "next/headers";
 
 import { DEMO_CATEGORIES } from "@/lib/billing/demo-data";
 import type {
+  AccountStatus,
   ActivityLog,
   Category,
   InviteCode,
   Profile,
 } from "@/types";
 
-const USERS_COOKIE = "dabills_demo_admin_users";
+const USERS_COOKIE = "dabills_demo_admin_users_v2";
 const INVITES_COOKIE = "dabills_demo_admin_invites";
 const ACTIVITY_COOKIE = "dabills_demo_activity_logs";
 const CATEGORIES_COOKIE = "dabills_demo_admin_categories";
 
 export type AdminUser = Profile & {
   subscriptions_count?: number;
-  status?: "active" | "disabled";
+  /** @deprecated prefer account_status */
+  status?: AccountStatus;
+  activation_token?: string | null;
 };
+
+function withStatus(user: AdminUser): AdminUser {
+  const account_status =
+    user.account_status ?? user.status ?? ("active" as AccountStatus);
+  return {
+    ...user,
+    account_status,
+    status: account_status,
+  };
+}
 
 function seedUsers(): AdminUser[] {
   const now = new Date().toISOString();
@@ -27,6 +40,7 @@ function seedUsers(): AdminUser[] {
       full_name: "DaBills Admin",
       avatar_url: null,
       role: "admin",
+      account_status: "active",
       plan_id: null,
       timezone: "UTC",
       notification_email: true,
@@ -35,6 +49,7 @@ function seedUsers(): AdminUser[] {
       updated_at: now,
       subscriptions_count: 0,
       status: "active",
+      activation_token: null,
     },
     {
       id: "demo-user",
@@ -42,6 +57,7 @@ function seedUsers(): AdminUser[] {
       full_name: "Jordan Lee",
       avatar_url: null,
       role: "user",
+      account_status: "active",
       plan_id: null,
       timezone: "Asia/Manila",
       notification_email: true,
@@ -50,6 +66,7 @@ function seedUsers(): AdminUser[] {
       updated_at: now,
       subscriptions_count: 8,
       status: "active",
+      activation_token: null,
     },
     {
       id: "demo-user-2",
@@ -57,6 +74,7 @@ function seedUsers(): AdminUser[] {
       full_name: "Sam Rivera",
       avatar_url: null,
       role: "user",
+      account_status: "active",
       plan_id: null,
       timezone: "UTC",
       notification_email: false,
@@ -65,6 +83,7 @@ function seedUsers(): AdminUser[] {
       updated_at: now,
       subscriptions_count: 3,
       status: "active",
+      activation_token: null,
     },
     {
       id: "demo-user-3",
@@ -72,6 +91,7 @@ function seedUsers(): AdminUser[] {
       full_name: "Alex Kim",
       avatar_url: null,
       role: "user",
+      account_status: "disabled",
       plan_id: null,
       timezone: "America/New_York",
       notification_email: true,
@@ -80,6 +100,7 @@ function seedUsers(): AdminUser[] {
       updated_at: now,
       subscriptions_count: 12,
       status: "disabled",
+      activation_token: null,
     },
   ];
 }
@@ -190,11 +211,68 @@ async function writeJsonCookie<T>(name: string, value: T) {
 }
 
 export async function readAdminUsers() {
-  return readJsonCookie(USERS_COOKIE, seedUsers());
+  const users = await readJsonCookie(USERS_COOKIE, seedUsers());
+  return users.map(withStatus);
 }
 
 export async function writeAdminUsers(users: AdminUser[]) {
-  await writeJsonCookie(USERS_COOKIE, users);
+  await writeJsonCookie(USERS_COOKIE, users.map(withStatus));
+}
+
+export async function createDemoAdminUser(input: {
+  email: string;
+  fullName: string;
+}) {
+  const users = await readAdminUsers();
+  const email = input.email.trim().toLowerCase();
+  if (users.some((user) => user.email.toLowerCase() === email)) {
+    throw new Error("A user with this email already exists");
+  }
+
+  const now = new Date().toISOString();
+  const created: AdminUser = {
+    id: crypto.randomUUID(),
+    email,
+    full_name: input.fullName.trim(),
+    avatar_url: null,
+    role: "user",
+    account_status: "pending",
+    plan_id: null,
+    timezone: "UTC",
+    notification_email: true,
+    notification_in_app: true,
+    created_at: now,
+    updated_at: now,
+    subscriptions_count: 0,
+    status: "pending",
+    activation_token: crypto.randomUUID(),
+  };
+
+  await writeAdminUsers([created, ...users]);
+  return created;
+}
+
+export async function setDemoUserAccountStatus(
+  userId: string,
+  status: AccountStatus,
+  extras?: Partial<Pick<AdminUser, "activation_token">>
+) {
+  const users = await readAdminUsers();
+  const index = users.findIndex((user) => user.id === userId);
+  if (index < 0) return null;
+  const next = [...users];
+  next[index] = withStatus({
+    ...next[index],
+    account_status: status,
+    status,
+    activation_token:
+      extras?.activation_token !== undefined
+        ? extras.activation_token
+        : next[index].activation_token,
+    updated_at: new Date().toISOString(),
+  });
+  await writeAdminUsers(next);
+  return next[index];
 }
 
 export async function readAdminInvites() {

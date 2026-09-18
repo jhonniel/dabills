@@ -1,5 +1,7 @@
 export type UserRole = "user" | "admin";
 
+export type AccountStatus = "pending" | "active" | "disabled";
+
 export type SubscriptionStatus = "active" | "paused" | "cancelled";
 
 export type SubscriptionPlanStatus = "active" | "archived";
@@ -70,6 +72,7 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   role: UserRole;
+  account_status: AccountStatus;
   plan_id: string | null;
   timezone: string;
   notification_email: boolean;
@@ -423,6 +426,7 @@ export interface Database {
     };
     Enums: {
       user_role: UserRole;
+      account_status: AccountStatus;
       subscription_status: SubscriptionStatus;
       subscription_plan_status: SubscriptionPlanStatus;
       admin_expense_status: AdminExpenseStatus;

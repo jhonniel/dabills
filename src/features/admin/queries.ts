@@ -139,7 +139,9 @@ export async function getAdminOverview() {
 
   return {
     usersCount: users.length,
-    activeUsers: users.filter((u) => u.status !== "disabled").length,
+    activeUsers: users.filter(
+      (u) => (u.account_status ?? u.status) !== "disabled"
+    ).length,
     invitesActive: invites.filter((i) => i.is_active).length,
     subscriptionsCount: subscriptions.length,
     billsCount: bills.length,
@@ -176,11 +178,16 @@ export async function listAdminUsers() {
     }
 
     return {
-      items: (data as Profile[]).map((profile) => ({
-        ...profile,
-        subscriptions_count: 0,
-        status: "active" as const,
-      })),
+      items: (data as Profile[]).map((profile) => {
+        const account_status = profile.account_status ?? "active";
+        return {
+          ...profile,
+          account_status,
+          subscriptions_count: 0,
+          status: account_status,
+          activation_token: null,
+        };
+      }),
       isDemo: false as const,
     };
   } catch {

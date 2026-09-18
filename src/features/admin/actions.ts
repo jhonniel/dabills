@@ -5,14 +5,20 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/guard";
 import {
   appendActivityLog,
+  createDemoAdminUser,
   readAdminCategories,
   readAdminInvites,
   readAdminUsers,
+  setDemoUserAccountStatus,
   writeAdminCategories,
   writeAdminInvites,
   writeAdminUsers,
 } from "@/lib/admin/demo-store";
-import { isSupabaseConfigured } from "@/lib/env";
+import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
+import { appendDemoEmailLog } from "@/lib/notifications/demo-store";
+import { activationEmailHtml } from "@/emails/templates/activation";
+import { sendEmail } from "@/services/email/client";
+import { adminCreateUserSchema } from "@/validators/admin-user";
 import {
   readDemoPaymentMethods,
   writeDemoPaymentMethods,
@@ -39,6 +45,7 @@ import {
   updateDemoAdminExpense,
 } from "@/lib/expenses/expenses-store";
 import type {
+  AccountStatus,
   AdminExpense,
   Category,
   InviteCode,
@@ -258,16 +265,37 @@ export async function adminUpdateUserRoleAction(
 
 export async function adminToggleUserStatusAction(
   userId: string,
-  status: "active" | "disabled"
+  status: AccountStatus
 ): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "admin:user-status",
+    limit: 40,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
   const session = await requireAdmin();
-  const users = await readAdminUsers();
-  const next = users.map((user) =>
-    user.id === userId
-      ? { ...user, status, updated_at: new Date().toISOString() }
-      : user
-  );
-  await writeAdminUsers(next);
+
+  if (status === "pending") {
+    return { success: false, error: "Use Send activation for pending accounts" };
+  }
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const updated = await setDemoUserAccountStatus(userId, status);
+    if (!updated) return { success: false, error: "User not found" };
+  } else {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("profiles")
+      .update({ account_status: status })
+      .eq("id", userId);
+    if (error) return { success: false, error: error.message };
+
+    // Ban / unban in Auth so login is blocked when disabled
+    await admin.auth.admin.updateUserById(userId, {
+      ban_duration: status === "disabled" ? "876000h" : "none",
+    });
+  }
 
   await appendActivityLog({
     user_id: userId,
@@ -282,6 +310,367 @@ export async function adminToggleUserStatusAction(
 
   revalidateAdmin();
   return { success: true };
+}
+
+async function deliverActivationLink(input: {
+  userId: string;
+  email: string;
+  fullName: string | null;
+  activationUrl: string;
+  actorId: string;
+}) {
+  const html = activationEmailHtml({
+    activationUrl: input.activationUrl,
+    recipientName: input.fullName ?? undefined,
+  });
+  const subject = "Activate your DaBills account";
+
+  if (process.env.RESEND_API_KEY) {
+    const result = await sendEmail({
+      to: input.email,
+      subject,
+      html,
+      template: "activation",
+      userId: input.userId,
+      metadata: { activationUrl: input.activationUrl },
+    });
+    await appendDemoEmailLog({
+      user_id: input.userId,
+      to_email: input.email,
+      subject,
+      template: "activation",
+      status: result.log.status ?? "sent",
+      provider_id: result.log.provider_id ?? null,
+      error: result.log.error ?? null,
+      metadata: { activationUrl: input.activationUrl },
+    });
+    if (result.log.status === "failed") {
+      return {
+        emailed: false as const,
+        error: result.log.error ?? "Failed to send activation email",
+      };
+    }
+    return { emailed: true as const };
+  }
+
+  await appendDemoEmailLog({
+    user_id: input.userId,
+    to_email: input.email,
+    subject,
+    template: "activation",
+    status: "sent",
+    provider_id: null,
+    error: null,
+    metadata: { activationUrl: input.activationUrl, demo: true },
+  });
+
+  return { emailed: false as const, demoLogged: true as const };
+}
+
+async function buildSupabaseActivationUrl(email: string) {
+  const admin = createAdminClient();
+  const redirectTo = `${getAppUrl()}/auth/callback?next=${encodeURIComponent("/activate")}`;
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  });
+  if (error || !data?.properties?.action_link) {
+    throw new Error(error?.message ?? "Failed to generate activation link");
+  }
+  return data.properties.action_link as string;
+}
+
+export async function adminCreateUserAction(input: {
+  email: string;
+  fullName: string;
+  sendActivation?: boolean;
+}): Promise<
+  ActionResult<{ id: string; activationUrl?: string; emailed?: boolean }>
+> {
+  const guard = await enforceMutationGuard({
+    action: "admin:user-create",
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const session = await requireAdmin();
+  const parsed = adminCreateUserSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid user",
+    };
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const fullName = parsed.data.fullName.trim();
+  const sendActivation = Boolean(parsed.data.sendActivation);
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    try {
+      const created = await createDemoAdminUser({ email, fullName });
+      let activationUrl: string | undefined;
+      let emailed = false;
+
+      if (sendActivation && created.activation_token) {
+        activationUrl = `${getAppUrl()}/activate?token=${created.activation_token}`;
+        const delivery = await deliverActivationLink({
+          userId: created.id,
+          email: created.email,
+          fullName: created.full_name,
+          activationUrl,
+          actorId: session.userId,
+        });
+        if ("error" in delivery && delivery.error) {
+          return { success: false, error: delivery.error };
+        }
+        emailed = delivery.emailed;
+      }
+
+      await appendActivityLog({
+        user_id: created.id,
+        actor_id: session.userId,
+        action: "user.created",
+        entity_type: "profile",
+        entity_id: created.id,
+        metadata: { email, sendActivation, emailed },
+        ip_address: null,
+        user_agent: "admin",
+      });
+
+      revalidateAdmin();
+      return {
+        success: true,
+        data: { id: created.id, activationUrl, emailed },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create user",
+      };
+    }
+  }
+
+  const admin = createAdminClient();
+  const tempPassword = `${crypto.randomUUID()}Aa1!`;
+
+  const { data: createdAuth, error: createError } =
+    await admin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: false,
+      user_metadata: {
+        full_name: fullName,
+        account_status: "pending",
+        provisioned_by: "admin",
+      },
+    });
+
+  if (createError || !createdAuth.user) {
+    return {
+      success: false,
+      error: createError?.message ?? "Failed to create auth user",
+    };
+  }
+
+  const userId = createdAuth.user.id;
+
+  // Ensure profile is pending (trigger may race; upsert status)
+  await admin
+    .from("profiles")
+    .update({
+      full_name: fullName,
+      account_status: "pending",
+    })
+    .eq("id", userId);
+
+  let activationUrl: string | undefined;
+  let emailed = false;
+
+  if (sendActivation) {
+    try {
+      activationUrl = await buildSupabaseActivationUrl(email);
+      const delivery = await deliverActivationLink({
+        userId,
+        email,
+        fullName,
+        activationUrl,
+        actorId: session.userId,
+      });
+      if ("error" in delivery && delivery.error) {
+        return { success: false, error: delivery.error };
+      }
+      emailed = delivery.emailed;
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "User created but activation link failed",
+      };
+    }
+  }
+
+  await appendActivityLog({
+    user_id: userId,
+    actor_id: session.userId,
+    action: "user.created",
+    entity_type: "profile",
+    entity_id: userId,
+    metadata: { email, sendActivation, emailed },
+    ip_address: null,
+    user_agent: "admin",
+  });
+
+  revalidateAdmin();
+  return {
+    success: true,
+    data: { id: userId, activationUrl, emailed },
+  };
+}
+
+export async function adminSendActivationLinkAction(input: {
+  userId: string;
+  /** When false, only generate/return the direct link (no email). Default true. */
+  sendEmail?: boolean;
+}): Promise<ActionResult<{ activationUrl: string; emailed: boolean }>> {
+  const guard = await enforceMutationGuard({
+    action: "admin:user-activation",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const session = await requireAdmin();
+  const userId = input.userId;
+  const shouldEmail = input.sendEmail !== false;
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const users = await readAdminUsers();
+    const user = users.find((item) => item.id === userId);
+    if (!user) return { success: false, error: "User not found" };
+    if (user.account_status === "disabled") {
+      return {
+        success: false,
+        error: "Enable the user before sharing an activation link",
+      };
+    }
+
+    const token = user.activation_token ?? crypto.randomUUID();
+    if ((user.account_status ?? user.status) !== "active") {
+      await setDemoUserAccountStatus(userId, "pending", {
+        activation_token: token,
+      });
+    } else if (!user.activation_token) {
+      await setDemoUserAccountStatus(userId, "active", {
+        activation_token: token,
+      });
+    }
+    const activationUrl = `${getAppUrl()}/activate?token=${token}`;
+
+    let emailed = false;
+    if (shouldEmail) {
+      const delivery = await deliverActivationLink({
+        userId,
+        email: user.email,
+        fullName: user.full_name,
+        activationUrl,
+        actorId: session.userId,
+      });
+      if ("error" in delivery && delivery.error) {
+        return { success: false, error: delivery.error };
+      }
+      emailed = delivery.emailed;
+    }
+
+    await appendActivityLog({
+      user_id: userId,
+      actor_id: session.userId,
+      action: shouldEmail ? "user.activation_sent" : "user.activation_link",
+      entity_type: "profile",
+      entity_id: userId,
+      metadata: { emailed, sendEmail: shouldEmail },
+      ip_address: null,
+      user_agent: "admin",
+    });
+
+    revalidateAdmin();
+    return {
+      success: true,
+      data: { activationUrl, emailed },
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id, email, full_name, account_status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return { success: false, error: profileError?.message ?? "User not found" };
+  }
+
+  if (profile.account_status === "disabled") {
+    return {
+      success: false,
+      error: "Enable the user before sharing an activation link",
+    };
+  }
+
+  try {
+    const activationUrl = await buildSupabaseActivationUrl(profile.email);
+    if (profile.account_status !== "active") {
+      await admin
+        .from("profiles")
+        .update({ account_status: "pending" })
+        .eq("id", userId);
+    }
+
+    let emailed = false;
+    if (shouldEmail) {
+      const delivery = await deliverActivationLink({
+        userId,
+        email: profile.email,
+        fullName: profile.full_name,
+        activationUrl,
+        actorId: session.userId,
+      });
+      if ("error" in delivery && delivery.error) {
+        return { success: false, error: delivery.error };
+      }
+      emailed = delivery.emailed;
+    }
+
+    await appendActivityLog({
+      user_id: userId,
+      actor_id: session.userId,
+      action: shouldEmail ? "user.activation_sent" : "user.activation_link",
+      entity_type: "profile",
+      entity_id: userId,
+      metadata: { emailed, sendEmail: shouldEmail },
+      ip_address: null,
+      user_agent: "admin",
+    });
+
+    revalidateAdmin();
+    return {
+      success: true,
+      data: { activationUrl, emailed },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to generate activation link",
+    };
+  }
 }
 
 export async function adminUpdateCategoryAction(input: {
