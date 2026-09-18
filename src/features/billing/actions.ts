@@ -25,7 +25,6 @@ export type ActionResult<T = undefined> =
 function revalidateBillingPaths() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/billing");
-  revalidatePath("/dashboard/analytics");
   revalidatePath("/dashboard/subscriptions");
   revalidatePath("/dashboard/payments");
 }

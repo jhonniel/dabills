@@ -9,7 +9,7 @@ import {
   type SubscriptionLike,
 } from "@/lib/billing/engine";
 
-const DEMO_BILLS_COOKIE = "dabills_demo_billing_cycles";
+const DEMO_BILLS_COOKIE = "dabills_demo_billing_cycles_v2";
 
 function stamp(
   draft: Omit<BillingCycle, "id" | "created_at" | "updated_at">,
@@ -142,4 +142,62 @@ export async function ensureDemoBillsForSubscription(
   const next = refreshBillingCycleStatuses([...existing, ...created]);
   await writeDemoBillingCycles(next);
   return next;
+}
+
+/**
+ * Apply a new plan price going forward only.
+ * Past / due / paid bills keep their original amount.
+ */
+export async function applyDemoPlanPriceForward(
+  planId: string,
+  amount: number,
+  currency?: string
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { readDemoSubscriptions, writeDemoSubscriptionsForPriceSync } =
+    await import("@/lib/billing/demo-store");
+
+  const subscriptions = await readDemoSubscriptions();
+  const linkedIds = new Set<string>();
+  const nextSubs = subscriptions.map((sub) => {
+    if (
+      sub.plan_id !== planId ||
+      (sub.status !== "active" && sub.status !== "paused")
+    ) {
+      return sub;
+    }
+    linkedIds.add(sub.id);
+    return {
+      ...sub,
+      amount,
+      currency: currency ?? sub.currency,
+      updated_at: new Date().toISOString(),
+    };
+  });
+  await writeDemoSubscriptionsForPriceSync(nextSubs);
+
+  const cycles = await readDemoBillingCycles();
+  const nextCycles = cycles.map((cycle) => {
+    if (!linkedIds.has(cycle.subscription_id)) return cycle;
+    // Only future unpaid upcoming bills get the new price
+    if (cycle.due_date <= today) return cycle;
+    if (
+      cycle.status === "paid" ||
+      cycle.status === "pending_verification" ||
+      cycle.status === "failed" ||
+      cycle.status === "overdue" ||
+      cycle.status === "pending"
+    ) {
+      return cycle;
+    }
+    return {
+      ...cycle,
+      amount,
+      currency: currency ?? cycle.currency,
+      updated_at: new Date().toISOString(),
+    };
+  });
+  await writeDemoBillingCycles(nextCycles);
+
+  return { seatsUpdated: linkedIds.size };
 }

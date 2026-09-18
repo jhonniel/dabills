@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Syne } from "next/font/google";
 
 import { SkipToContent } from "@/components/layout/skip-to-content";
@@ -23,6 +23,17 @@ const syne = Syne({
   weight: ["500", "600", "700", "800"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#070b12" },
+    { media: "(prefers-color-scheme: light)", color: "#f7fafb" },
+  ],
+  colorScheme: "dark light",
+};
+
 export const metadata: Metadata = {
   title: {
     default: `${APP_NAME} — ${APP_TAGLINE}`,
@@ -34,9 +45,25 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   ),
   applicationName: APP_NAME,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
+  },
+  formatDetection: {
+    telephone: false,
+  },
   robots: {
     index: true,
     follow: true,
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     title: `${APP_NAME} — ${APP_TAGLINE}`,
@@ -44,6 +71,7 @@ export const metadata: Metadata = {
       "Track every subscription. Never miss a payment. Manage recurring bills effortlessly with DaBills.",
     type: "website",
     siteName: APP_NAME,
+    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: APP_NAME }],
   },
 };
 
@@ -58,7 +86,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${syne.variable} dark h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans">
+      <body className="flex min-h-full flex-col font-sans overscroll-none">
         <SkipToContent />
         <AppProviders>{children}</AppProviders>
       </body>

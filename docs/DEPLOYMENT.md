@@ -9,7 +9,7 @@ Production checklist for deploying DaBills to Vercel + Supabase.
    - `supabase/migrations/001_initial_schema.sql`
    - `supabase/migrations/002_rls_policies.sql`
    - `supabase/migrations/003_security_hardening.sql`
-3. Create a private Storage bucket named `receipts` (migration 002/003 expect it).
+3. Create a private Storage bucket named `receipts` (migration 002/003 expect it). Migration `009` also creates a public `payment-qr` bucket for payment-method QR images.
 4. Copy Project URL, anon key, and service role key into Vercel env vars.
 5. Promote at least one user to admin:
 

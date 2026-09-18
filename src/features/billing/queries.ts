@@ -22,6 +22,12 @@ function applyFilters(
   filters: BillingFilters
 ) {
   let result = [...items];
+  const today = new Date().toISOString().slice(0, 10);
+  const horizon = filters.horizon ?? "past";
+
+  if (horizon === "past") {
+    result = result.filter((item) => item.due_date <= today);
+  }
 
   if (filters.search) {
     const q = filters.search.toLowerCase();
@@ -41,7 +47,11 @@ function applyFilters(
     result = result.filter((item) => item.due_date.startsWith(filters.month!));
   }
 
-  result.sort((a, b) => a.due_date.localeCompare(b.due_date));
+  result.sort((a, b) =>
+    horizon === "past"
+      ? b.due_date.localeCompare(a.due_date)
+      : a.due_date.localeCompare(b.due_date)
+  );
   return result;
 }
 
@@ -105,8 +115,15 @@ export async function listBillingCycles(filters: BillingFilters = {}) {
     .select(
       "*, subscription:subscriptions(id, name, billing_frequency, status, reminder_days, category:categories(id, slug, name, icon, color))"
     )
-    .eq("user_id", user.id)
-    .order("due_date", { ascending: true });
+    .eq("user_id", user.id);
+
+  const horizon = parsed.horizon ?? "past";
+  const today = new Date().toISOString().slice(0, 10);
+  if (horizon === "past") {
+    query = query.lte("due_date", today).order("due_date", { ascending: false });
+  } else {
+    query = query.order("due_date", { ascending: true });
+  }
 
   if (parsed.status && parsed.status !== "all") {
     query = query.eq("status", parsed.status);
@@ -147,25 +164,22 @@ export async function listBillingCycles(filters: BillingFilters = {}) {
 }
 
 export async function getBillingOverview() {
-  const { items, isDemo } = await listBillingCycles({ status: "all" });
-  const today = new Date().toISOString().slice(0, 10);
+  const { items, isDemo } = await listBillingCycles({
+    status: "all",
+    horizon: "past",
+  });
 
   const counts = {
-    upcoming: items.filter((i) => i.status === "upcoming").length,
     pending: items.filter((i) => i.status === "pending").length,
     overdue: items.filter((i) => i.status === "overdue").length,
     paid: items.filter((i) => i.status === "paid").length,
-    dueThisWeek: items.filter((i) => {
-      if (i.status === "paid" || i.status === "failed") return false;
-      const due = i.due_date;
-      const weekEnd = new Date();
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      return due >= today && due <= weekEnd.toISOString().slice(0, 10);
-    }).length,
+    pendingVerification: items.filter(
+      (i) => i.status === "pending_verification"
+    ).length,
   };
 
   const amountDue = items
-    .filter((i) => ["upcoming", "pending", "overdue"].includes(i.status))
+    .filter((i) => ["pending", "overdue", "pending_verification"].includes(i.status))
     .reduce((sum, i) => sum + Number(i.amount), 0);
 
   return { counts, amountDue, items, isDemo };
@@ -173,7 +187,7 @@ export async function getBillingOverview() {
 
 export async function getReminderSchedulePreview() {
   const [{ items }, subscriptions] = await Promise.all([
-    listBillingCycles({ status: "all" }),
+    listBillingCycles({ status: "all", horizon: "all" }),
     !isSupabaseConfigured()
       ? readDemoSubscriptions()
       : (async () => {

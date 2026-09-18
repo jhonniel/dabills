@@ -1,9 +1,5 @@
-"use client";
-
-import { motion, useInView, useMotionValue, useSpring } from "framer-motion";
-import { useEffect, useRef } from "react";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DEFAULT_CURRENCY, DEFAULT_LOCALE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function StatCard({
@@ -18,55 +14,36 @@ export function StatCard({
   accent?: string;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      <Card className="border-white/10 bg-white/[0.03] backdrop-blur-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className={cn("font-display text-2xl font-semibold tracking-tight", accent)}>
-            {value}
-          </p>
-          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-        </CardContent>
-      </Card>
-    </motion.div>
+    <Card className="border-white/10 bg-white/[0.03] transition-shadow duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className={cn("font-display text-2xl font-semibold tracking-tight", accent)}>
+          {value}
+        </p>
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
 export function AnimatedCurrency({
   amount,
-  currency = "USD",
+  currency = DEFAULT_CURRENCY,
 }: {
   amount: number;
   currency?: string;
 }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  const motionValue = useMotionValue(0);
-  const spring = useSpring(motionValue, { stiffness: 70, damping: 20 });
-
-  useEffect(() => {
-    if (inView) motionValue.set(amount);
-  }, [amount, inView, motionValue]);
-
-  useEffect(() => {
-    const unsub = spring.on("change", (latest) => {
-      if (!ref.current) return;
-      ref.current.textContent = new Intl.NumberFormat("en-US", {
+  return (
+    <span>
+      {new Intl.NumberFormat(DEFAULT_LOCALE, {
         style: "currency",
         currency,
         maximumFractionDigits: 2,
-      }).format(latest);
-    });
-    return unsub;
-  }, [currency, spring]);
-
-  return <span ref={ref}>$0.00</span>;
+      }).format(amount)}
+    </span>
+  );
 }

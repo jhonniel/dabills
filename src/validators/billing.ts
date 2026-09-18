@@ -14,6 +14,8 @@ export const billingFiltersSchema = z.object({
   status: billStatusSchema.or(z.literal("all")).optional(),
   view: z.enum(["table", "cards", "calendar", "timeline"]).optional(),
   month: z.string().optional(), // YYYY-MM
+  /** User billing defaults to past (due_date <= today). */
+  horizon: z.enum(["past", "all"]).optional(),
 });
 
 export type BillingFilters = z.infer<typeof billingFiltersSchema>;

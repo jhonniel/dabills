@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { SalesExpensesChart } from "@/components/charts/lazy-expense-charts";
 import { getAdminOverview } from "@/features/admin/queries";
 import { formatMoney } from "@/lib/billing/expenses";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -13,8 +14,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminOverviewPage() {
   const overview = await getAdminOverview();
+  const monthLabel = new Date().toLocaleString("en-PH", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="space-y-8">
@@ -39,14 +46,37 @@ export default async function AdminOverviewPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="Users"
-          value={String(overview.usersCount)}
-          hint={`${overview.activeUsers} active`}
+          title="Sales this month"
+          value={formatMoney(overview.salesThisMonth)}
+          hint={monthLabel}
+          accent="text-teal-200"
+        />
+        <StatCard
+          title="Expenses this month"
+          value={formatMoney(overview.expensesThisMonth)}
+          hint="Platform / ops costs"
+          accent="text-rose-200"
+        />
+        <StatCard
+          title="Net this month"
+          value={formatMoney(overview.netThisMonth)}
+          hint="Sales − expenses"
+          accent={
+            overview.netThisMonth >= 0 ? "text-cyan-200" : "text-amber-200"
+          }
         />
         <StatCard
           title="Pending approvals"
           value={String(overview.pendingApprovals)}
           accent="text-amber-200"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Users"
+          value={String(overview.usersCount)}
+          hint={`${overview.activeUsers} active`}
         />
         <StatCard
           title="Active invites"
@@ -55,9 +85,16 @@ export default async function AdminOverviewPage() {
         <StatCard
           title="Approved volume"
           value={formatMoney(overview.approvedVolume)}
+          hint="All-time approved payments"
           accent="text-cyan-200"
         />
+        <StatCard
+          title="Subscriptions"
+          value={String(overview.subscriptionsCount)}
+        />
       </div>
+
+      <SalesExpensesChart data={overview.financeSeries} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-white/10 bg-white/[0.03]">
@@ -72,20 +109,20 @@ export default async function AdminOverviewPage() {
             {overview.pendingPayments.map((payment) => (
               <div
                 key={payment.id}
-                className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
               >
-                <div>
-                  <p className="font-medium">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">
                     {payment.subscription_name ?? "Payment"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {formatMoney(payment.amount, payment.currency)} ·{" "}
                     {payment.reference_number ?? "No ref"}
                   </p>
                 </div>
                 <Badge
                   variant="outline"
-                  className="border-amber-400/30 bg-amber-400/10 text-amber-200"
+                  className="shrink-0 border-amber-400/30 bg-amber-400/10 text-amber-200"
                 >
                   Pending
                 </Badge>

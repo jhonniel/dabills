@@ -49,17 +49,19 @@ export function BillingCalendar({
     return index - firstDow + 1;
   });
 
+  const monthBills = items.filter((item) => item.due_date.startsWith(monthKey));
+
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-lg font-semibold">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-3 sm:p-6">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h3 className="font-display text-base font-semibold sm:text-lg">
           {cursor.toLocaleString("en-US", { month: "long", year: "numeric" })}
         </h3>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="icon"
-            className="rounded-xl"
+            className="size-9 rounded-xl sm:size-10"
             onClick={() =>
               setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))
             }
@@ -69,7 +71,7 @@ export function BillingCalendar({
           <Button
             variant="outline"
             size="icon"
-            className="rounded-xl"
+            className="size-9 rounded-xl sm:size-10"
             onClick={() =>
               setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))
             }
@@ -79,13 +81,20 @@ export function BillingCalendar({
         </div>
       </div>
 
-      <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
+      <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground sm:gap-2 sm:text-xs">
+        {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+          <div key={`${day}-${index}`} className="sm:hidden">
+            {day}
+          </div>
+        ))}
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-          <div key={day}>{day}</div>
+          <div key={day} className="hidden sm:block">
+            {day}
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {cells.map((day, index) => {
           if (!day) return <div key={`empty-${index}`} />;
           const key = String(day).padStart(2, "0");
@@ -97,12 +106,23 @@ export function BillingCalendar({
             <div
               key={key}
               className={cn(
-                "min-h-24 rounded-2xl border border-white/5 bg-white/[0.02] p-2",
+                "min-h-12 rounded-xl border border-white/5 bg-white/[0.02] p-1 sm:min-h-24 sm:rounded-2xl sm:p-2",
                 isToday && "border-cyan-400/40 bg-cyan-400/5"
               )}
             >
-              <p className="text-xs font-medium">{day}</p>
-              <div className="mt-1 space-y-1">
+              <p className="text-[10px] font-medium sm:text-xs">{day}</p>
+              {/* Mobile: dots only */}
+              <div className="mt-1 flex flex-wrap gap-0.5 sm:hidden">
+                {dayBills.slice(0, 3).map((bill) => (
+                  <span
+                    key={bill.id}
+                    className="size-1.5 rounded-full bg-cyan-400/80"
+                    title={bill.subscription?.name ?? "Bill"}
+                  />
+                ))}
+              </div>
+              {/* Desktop: names */}
+              <div className="mt-1 hidden space-y-1 sm:block">
                 {dayBills.slice(0, 2).map((bill) => (
                   <div
                     key={bill.id}
@@ -125,25 +145,28 @@ export function BillingCalendar({
 
       <div className="mt-6 space-y-2">
         <p className="text-sm font-medium">Bills this month</p>
-        {items
-          .filter((item) => item.due_date.startsWith(monthKey))
-          .map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
-            >
-              <div>
-                <p className="font-medium">{item.subscription?.name}</p>
-                <p className="text-xs text-muted-foreground">{item.due_date}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-display text-sm">
-                  {formatMoney(item.amount, item.currency)}
-                </span>
-                <BillStatusBadge status={item.status} />
-              </div>
+        {monthBills.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-muted-foreground">
+            No bills due this month.
+          </p>
+        )}
+        {monthBills.map((item) => (
+          <div
+            key={item.id}
+            className="flex flex-col gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{item.subscription?.name}</p>
+              <p className="text-xs text-muted-foreground">{item.due_date}</p>
             </div>
-          ))}
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <span className="font-display text-sm">
+                {formatMoney(item.amount, item.currency)}
+              </span>
+              <BillStatusBadge status={item.status} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

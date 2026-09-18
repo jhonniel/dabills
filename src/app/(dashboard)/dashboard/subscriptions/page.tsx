@@ -1,10 +1,7 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { Suspense } from "react";
 
 import { SubscriptionFiltersBar } from "@/components/subscriptions/subscription-filters";
 import { SubscriptionsTable } from "@/components/subscriptions/subscriptions-table";
-import { Button } from "@/components/ui/button";
 import { listCategories } from "@/features/categories/queries";
 import { listSubscriptions } from "@/features/subscriptions/queries";
 import type { SubscriptionFilters } from "@/validators/subscription";
@@ -42,18 +39,9 @@ export default async function SubscriptionsPage({
             Subscriptions
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Manage every recurring service — search, filter, and keep renewals in view.
+            Subscriptions assigned to you by an admin. Settle bills from Billing.
           </p>
         </div>
-        <Button
-          asChild
-          className="rounded-xl bg-gradient-to-r from-cyan-400 to-teal-500 font-semibold text-black"
-        >
-          <Link href="/dashboard/subscriptions/new">
-            <Plus className="size-4" />
-            Add subscription
-          </Link>
-        </Button>
       </div>
 
       <Suspense fallback={<div className="h-10 animate-pulse rounded-xl bg-white/5" />}>

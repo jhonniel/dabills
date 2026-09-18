@@ -3,6 +3,10 @@ import type { CategorySlug, PlanTier } from "@/types";
 export const APP_NAME = "DaBills";
 export const APP_TAGLINE = "All Your Subscriptions. One Smart Dashboard.";
 
+/** Default billing currency — Philippine Peso */
+export const DEFAULT_CURRENCY = "PHP";
+export const DEFAULT_LOCALE = "en-PH";
+
 export const CATEGORIES: Array<{
   slug: CategorySlug;
   name: string;
@@ -26,31 +30,31 @@ export const CATEGORIES: Array<{
 ];
 
 export const SHOWCASE_SUBSCRIPTIONS = [
-  { name: "Netflix", price: 15.49, category: "Streaming", gradient: "from-red-600/40 to-black" },
-  { name: "Spotify", price: 10.99, category: "Streaming", gradient: "from-emerald-500/40 to-black" },
-  { name: "Disney+", price: 13.99, category: "Streaming", gradient: "from-blue-600/40 to-indigo-950" },
-  { name: "YouTube Premium", price: 13.99, category: "Streaming", gradient: "from-rose-600/40 to-black" },
-  { name: "Google One", price: 9.99, category: "Cloud", gradient: "from-sky-500/40 to-blue-950" },
-  { name: "Microsoft 365", price: 9.99, category: "Software", gradient: "from-cyan-500/40 to-slate-950" },
-  { name: "iCloud+", price: 2.99, category: "Cloud", gradient: "from-slate-400/40 to-slate-950" },
-  { name: "Adobe Creative Cloud", price: 59.99, category: "Software", gradient: "from-red-500/40 to-rose-950" },
-  { name: "Canva Pro", price: 14.99, category: "Software", gradient: "from-violet-500/40 to-fuchsia-950" },
-  { name: "Prime Video", price: 8.99, category: "Streaming", gradient: "from-sky-600/40 to-slate-950" },
-  { name: "Crunchyroll", price: 11.99, category: "Streaming", gradient: "from-orange-500/40 to-amber-950" },
-  { name: "Steam", price: 0, category: "Gaming", gradient: "from-indigo-500/40 to-slate-950" },
-  { name: "Epic Games", price: 0, category: "Gaming", gradient: "from-zinc-400/40 to-zinc-950" },
-  { name: "PLDT Home", price: 49.99, category: "Internet", gradient: "from-blue-500/40 to-blue-950" },
-  { name: "Globe Fiber", price: 39.99, category: "Internet", gradient: "from-blue-400/40 to-indigo-950" },
-  { name: "Converge", price: 34.99, category: "Internet", gradient: "from-amber-500/40 to-orange-950" },
-  { name: "Starlink", price: 120, category: "Internet", gradient: "from-slate-300/30 to-black" },
-  { name: "Sky Cable", price: 29.99, category: "Internet", gradient: "from-yellow-500/40 to-zinc-950" },
-  { name: "ChatGPT Plus", price: 20, category: "Software", gradient: "from-teal-500/40 to-emerald-950" },
-  { name: "Claude Pro", price: 20, category: "Software", gradient: "from-orange-400/40 to-stone-950" },
-  { name: "GitHub Copilot", price: 10, category: "Software", gradient: "from-zinc-300/30 to-zinc-950" },
-  { name: "Cursor", price: 20, category: "Software", gradient: "from-cyan-400/40 to-slate-950" },
-  { name: "Notion", price: 10, category: "Software", gradient: "from-zinc-200/20 to-zinc-950" },
-  { name: "Dropbox", price: 11.99, category: "Cloud", gradient: "from-blue-500/40 to-blue-950" },
-  { name: "OneDrive", price: 6.99, category: "Cloud", gradient: "from-sky-400/40 to-blue-950" },
+  { name: "Netflix", price: 549, category: "Streaming", domain: "netflix.com" },
+  { name: "Spotify", price: 149, category: "Streaming", domain: "spotify.com" },
+  { name: "Disney+", price: 369, category: "Streaming", domain: "disneyplus.com" },
+  { name: "YouTube Premium", price: 219, category: "Streaming", domain: "youtube.com" },
+  { name: "Google One", price: 149, category: "Cloud", domain: "one.google.com" },
+  { name: "Microsoft 365", price: 429, category: "Software", domain: "microsoft.com" },
+  { name: "iCloud+", price: 149, category: "Cloud", domain: "apple.com" },
+  { name: "Adobe Creative Cloud", price: 3499, category: "Software", domain: "adobe.com" },
+  { name: "Canva Pro", price: 649, category: "Software", domain: "canva.com" },
+  { name: "Prime Video", price: 249, category: "Streaming", domain: "primevideo.com" },
+  { name: "Crunchyroll", price: 279, category: "Streaming", domain: "crunchyroll.com" },
+  { name: "Steam", price: 0, category: "Gaming", domain: "steampowered.com" },
+  { name: "Epic Games", price: 0, category: "Gaming", domain: "epicgames.com" },
+  { name: "PLDT Home", price: 1699, category: "Internet", domain: "pldthome.com" },
+  { name: "Globe Fiber", price: 2499, category: "Internet", domain: "globe.com.ph" },
+  { name: "Converge", price: 1899, category: "Internet", domain: "convergeict.com" },
+  { name: "Starlink", price: 5200, category: "Internet", domain: "starlink.com" },
+  { name: "Sky Cable", price: 1299, category: "Internet", domain: "skycable.com" },
+  { name: "ChatGPT Plus", price: 1149, category: "Software", domain: "openai.com" },
+  { name: "Claude Pro", price: 1149, category: "Software", domain: "anthropic.com" },
+  { name: "GitHub Copilot", price: 579, category: "Software", domain: "github.com" },
+  { name: "Cursor", price: 1149, category: "Software", domain: "cursor.com" },
+  { name: "Notion", price: 579, category: "Software", domain: "notion.so" },
+  { name: "Dropbox", price: 649, category: "Cloud", domain: "dropbox.com" },
+  { name: "OneDrive", price: 289, category: "Cloud", domain: "onedrive.live.com" },
 ] as const;
 
 export const PRICING_PLANS: Array<{
@@ -81,8 +85,8 @@ export const PRICING_PLANS: Array<{
     tier: "personal",
     name: "Personal",
     description: "Full visibility for individuals who want control.",
-    priceMonthly: 9,
-    priceYearly: 90,
+    priceMonthly: 249,
+    priceYearly: 2490,
     features: [
       "Unlimited subscriptions",
       "OCR receipt validation",
@@ -97,8 +101,8 @@ export const PRICING_PLANS: Array<{
     tier: "family",
     name: "Family",
     description: "Shared billing oversight for households.",
-    priceMonthly: 19,
-    priceYearly: 190,
+    priceMonthly: 799,
+    priceYearly: 7990,
     features: [
       "Everything in Personal",
       "Up to 5 members",
@@ -111,8 +115,8 @@ export const PRICING_PLANS: Array<{
     tier: "business",
     name: "Business",
     description: "SaaS spend control for growing teams.",
-    priceMonthly: 49,
-    priceYearly: 490,
+    priceMonthly: 2499,
+    priceYearly: 24990,
     features: [
       "Everything in Family",
       "Up to 25 members",
@@ -187,6 +191,6 @@ export const FEATURES = [
 export const LANDING_STATS = [
   { label: "Active subscriptions", value: 12847, suffix: "+" },
   { label: "Bills paid", value: 92431, suffix: "+" },
-  { label: "Monthly savings", value: 2.4, prefix: "$", suffix: "M" },
+  { label: "Monthly savings", value: 48.2, prefix: "₱", suffix: "M" },
   { label: "Due this week", value: 3182, suffix: "" },
 ] as const;

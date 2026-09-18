@@ -1,17 +1,16 @@
-import { CtaSection } from "@/components/landing/cta-section";
-import { FeaturesSection } from "@/components/landing/features-section";
 import { HeroSection } from "@/components/landing/hero-section";
-import { PricingSection } from "@/components/landing/pricing-section";
 import { SubscriptionCarousel } from "@/components/landing/subscription-carousel";
+import { SystemInfoSection } from "@/components/landing/system-info-section";
+import { listPublicShowcasePlans } from "@/features/subscriptions/showcase";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const plans = await listPublicShowcasePlans();
+
   return (
     <>
-      <HeroSection />
-      <SubscriptionCarousel />
-      <FeaturesSection />
-      <PricingSection />
-      <CtaSection />
+      <HeroSection plans={plans} />
+      <SubscriptionCarousel plans={plans} />
+      <SystemInfoSection />
     </>
   );
 }

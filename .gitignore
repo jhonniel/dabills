@@ -15,6 +15,9 @@
 /.next/
 /out/
 
+# Local payment QR uploads (demo / storage fallback)
+/public/uploads/
+
 # Production
 /build
 

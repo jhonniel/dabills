@@ -69,14 +69,15 @@ export function BillingToolbar({
                 size="sm"
                 variant={view === item.id ? "default" : "outline"}
                 className={cn(
-                  "rounded-xl",
+                  "min-h-11 rounded-xl sm:min-h-7",
                   view === item.id &&
                     "bg-cyan-400/20 text-cyan-100 hover:bg-cyan-400/25"
                 )}
                 onClick={() => update("view", item.id)}
               >
                 <Icon className="size-4" />
-                {item.label}
+                <span className="hidden sm:inline">{item.label}</span>
+                <span className="sr-only sm:hidden">{item.label}</span>
               </Button>
             );
           })}
@@ -102,7 +103,8 @@ export function BillingToolbar({
             }}
           >
             <RefreshCw className="size-4" />
-            Refresh statuses
+            <span className="sm:hidden">Refresh</span>
+            <span className="hidden sm:inline">Refresh statuses</span>
           </Button>
           <Button
             type="button"
@@ -127,7 +129,8 @@ export function BillingToolbar({
             }}
           >
             <Sparkles className="size-4" />
-            Generate bills
+            <span className="sm:hidden">Generate</span>
+            <span className="hidden sm:inline">Generate bills</span>
           </Button>
         </div>
       </div>
@@ -147,7 +150,6 @@ export function BillingToolbar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="upcoming">Upcoming</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
@@ -166,7 +168,7 @@ export function BillingToolbar({
             <SelectItem value="all">All months</SelectItem>
             {monthOptions.map((month) => (
               <SelectItem key={month} value={month}>
-                {new Date(`${month}-01T12:00:00`).toLocaleString("en-US", {
+                {new Date(`${month}-01T12:00:00`).toLocaleString("en-PH", {
                   month: "long",
                   year: "numeric",
                 })}

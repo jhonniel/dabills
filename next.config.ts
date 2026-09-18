@@ -30,10 +30,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "*.supabase.co" },
-      { protocol: "https", hostname: "images.unsplash.com" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts", "date-fns"],

@@ -1,15 +1,6 @@
 import type { BillingCycleWithSubscription } from "@/features/billing/queries";
-import type { ReminderScheduleItem } from "@/lib/billing/reminders";
 import { formatMoney } from "@/lib/billing/expenses";
 import { BillStatusBadge } from "@/components/billing/bill-status-badge";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export function BillingTimeline({
   items,
@@ -51,48 +42,5 @@ export function BillingTimeline({
         </div>
       ))}
     </div>
-  );
-}
-
-export function ReminderScheduleCard({
-  reminders,
-}: {
-  reminders: ReminderScheduleItem[];
-}) {
-  return (
-    <Card className="border-white/10 bg-white/[0.03]">
-      <CardHeader>
-        <CardTitle className="font-display text-lg">Reminder schedule</CardTitle>
-        <CardDescription>
-          Cron-ready plan for 5 / 3 / 1 day, due today, and overdue alerts (Phase 5
-          will send these).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {reminders.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No reminders scheduled in the next window.
-          </p>
-        )}
-        {reminders.slice(0, 8).map((reminder) => (
-          <div
-            key={reminder.id}
-            className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
-          >
-            <div>
-              <p className="text-sm font-medium capitalize">
-                {reminder.type.replaceAll("_", " ")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Send {reminder.scheduled_for} · due {reminder.due_date}
-              </p>
-            </div>
-            <Badge variant="outline" className="capitalize">
-              {reminder.channel}
-            </Badge>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
   );
 }

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
   CreditCard,
   History,
   LayoutDashboard,
@@ -17,11 +16,12 @@ import {
 import { useState } from "react";
 
 import { logoutAction } from "@/features/auth/actions";
+import { AppWordmark } from "@/components/brand/app-wordmark";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { APP_NAME } from "@/lib/constants";
 import type { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,6 @@ const navItems = [
   { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/dashboard/billing", label: "Billing", icon: Receipt },
   { href: "/dashboard/payments", label: "Payments", icon: History },
-  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   {
     href: "/dashboard/settings/notifications",
     label: "Notifications",
@@ -54,7 +53,7 @@ export function DashboardShell({
   const [open, setOpen] = useState(false);
 
   const Nav = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <nav className="flex flex-col gap-1">
+    <nav className="flex flex-col gap-0.5">
       {navItems.map((item) => {
         const active =
           item.href === "/dashboard"
@@ -68,16 +67,16 @@ export function DashboardShell({
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+              "inline-flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
               active
-                ? "bg-cyan-400/15 text-cyan-200"
-                : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                ? "bg-cyan-400/12 font-medium text-cyan-200"
+                : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
             )}
           >
-            <Icon className="size-4" />
+            <Icon className={cn("size-4", active ? "text-cyan-300" : "text-zinc-500")} />
             {item.label}
             {item.href.includes("notifications") && unreadCount > 0 && (
-              <span className="ml-auto rounded-full bg-cyan-400/20 px-1.5 py-0.5 text-[10px] text-cyan-200">
+              <span className="ml-auto rounded-md bg-cyan-400/20 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200">
                 {unreadCount}
               </span>
             )}
@@ -88,19 +87,11 @@ export function DashboardShell({
   );
 
   return (
-    <div className="min-h-svh bg-background">
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -left-24 top-0 size-[28rem] rounded-full bg-cyan-500/10 blur-[120px]" />
-        <div className="absolute right-0 top-40 size-[22rem] rounded-full bg-teal-500/10 blur-[100px]" />
-      </div>
-
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-background/70 backdrop-blur-xl lg:hidden">
+    <div className="min-h-dvh bg-[#070b12] pt-[env(safe-area-inset-top)] text-foreground">
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#070b12]/90 backdrop-blur-md lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-teal-600">
-              <span className="font-display text-xs font-bold text-black">D</span>
-            </span>
-            <span className="font-display font-semibold">{APP_NAME}</span>
+          <Link href="/dashboard" className="inline-flex items-center">
+            <AppWordmark size="sm" />
           </Link>
           <div className="flex items-center gap-1">
             <NotificationBell items={notifications} unreadCount={unreadCount} />
@@ -108,7 +99,8 @@ export function DashboardShell({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Open menu"
+              className="size-11"
+              aria-label={open ? "Close menu" : "Open menu"}
               onClick={() => setOpen((v) => !v)}
             >
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -116,51 +108,78 @@ export function DashboardShell({
           </div>
         </div>
         {open && (
-          <div className="border-t border-white/10 px-4 py-4">
+          <div className="max-h-[70dvh] overflow-y-auto border-t border-white/[0.06] px-4 py-4">
             <Nav onNavigate={() => setOpen(false)} />
+            <Separator className="my-4 bg-white/[0.06]" />
+            <form action={logoutAction}>
+              <Button
+                variant="outline"
+                size="sm"
+                type="submit"
+                className="min-h-11 w-full justify-start border-white/10"
+              >
+                <LogOut className="size-4" />
+                Sign out
+              </Button>
+            </form>
           </div>
         )}
       </header>
 
-      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:px-8">
-        <aside className="hidden w-60 shrink-0 lg:block">
-          <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
-            <div className="mb-6 flex items-center justify-between gap-2 px-1">
-              <Link href="/dashboard" className="inline-flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600">
-                  <span className="font-display text-sm font-bold text-black">D</span>
-                </span>
-                <span className="font-display text-lg font-semibold">{APP_NAME}</span>
-              </Link>
-              <NotificationBell items={notifications} unreadCount={unreadCount} />
-            </div>
+      <div className="mx-auto flex max-w-7xl gap-0 px-0 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:gap-0 lg:px-0 lg:pb-0">
+        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[0.06] bg-[#0a0f18] px-4 py-5 lg:flex">
+          <div className="mb-8 px-1">
+            <Link href="/dashboard" className="inline-flex items-center">
+              <AppWordmark size="md" />
+            </Link>
+          </div>
 
+          <div className="flex-1 overflow-y-auto">
+            <p className="mb-2 px-3 text-[10px] font-medium tracking-[0.14em] text-zinc-600 uppercase">
+              Menu
+            </p>
             <Nav />
+          </div>
 
-            <Separator className="my-4 bg-white/10" />
-
-            <div className="flex items-center justify-between gap-2">
+          <div className="mt-auto space-y-3 border-t border-white/[0.06] pt-4">
+            <div className="flex items-center justify-between gap-2 px-1">
               <ThemeToggle />
               <form action={logoutAction}>
-                <Button variant="outline" size="sm" type="submit">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="submit"
+                  className="text-zinc-400 hover:text-zinc-100"
+                >
                   <LogOut className="size-4" />
                   Sign out
                 </Button>
               </form>
             </div>
-
             {isDemo && (
-              <p className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-[11px] leading-relaxed text-cyan-100/90">
+              <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-[11px] leading-relaxed text-amber-100/80">
                 Demo mode — data is local until Supabase is connected.
               </p>
             )}
           </div>
         </aside>
 
-        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 pb-10 outline-none">
-          {children}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 hidden h-14 items-center justify-end border-b border-white/[0.06] bg-[#070b12]/90 px-6 backdrop-blur-md lg:flex xl:px-8">
+            <NotificationBell items={notifications} unreadCount={unreadCount} />
+          </header>
+
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="min-w-0 flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8"
+          >
+            {children}
+          </main>
+        </div>
       </div>
+
+      <MobileBottomNav onMore={() => setOpen(true)} />
     </div>
   );
 }

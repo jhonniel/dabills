@@ -38,7 +38,7 @@ export function NotificationBell({
         <Button
           variant="ghost"
           size="icon"
-          className="relative size-9"
+          className="relative size-11 lg:size-9"
           aria-label="Notifications"
         >
           <Bell className="size-4" />
@@ -49,7 +49,10 @@ export function NotificationBell({
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent
+        align="end"
+        className="w-[min(20rem,calc(100vw-2rem))]"
+      >
         <DropdownMenuLabel className="flex items-center justify-between gap-2">
           <span>Notifications</span>
           {unreadCount > 0 && (

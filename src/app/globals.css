@@ -123,16 +123,57 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
-    @apply bg-background text-foreground;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.55 0.12 195 / 0.12), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 0%, oklch(0.5 0.1 165 / 0.08), transparent);
-    background-attachment: fixed;
-  }
-
   html {
     @apply font-sans scroll-smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* App-like feel when installed / standalone */
+  @media (display-mode: standalone) {
+    body {
+      user-select: none;
+    }
+
+    input,
+    textarea,
+    [contenteditable="true"] {
+      user-select: text;
+    }
+  }
+
+  a,
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    @apply transition-colors duration-300 ease-out;
+  }
+
+  /* Thumb-friendly controls on touch devices */
+  @media (pointer: coarse) {
+    [data-slot="button"]:not([data-size="xs"]):not([data-size="icon-xs"]):not([data-size="link"]) {
+      min-height: 2.75rem;
+    }
+
+    [data-slot="button"][data-size="icon"],
+    [data-slot="button"][data-size="icon-sm"],
+    [data-slot="button"][data-size="icon-lg"] {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+
+    [data-slot="input"],
+    [data-slot="select-trigger"] {
+      min-height: 2.75rem;
+    }
   }
 }
 
@@ -142,7 +183,35 @@
   }
 
   .glass {
-    @apply border border-white/10 bg-white/5 shadow-[0_8px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl;
+    @apply border border-white/10 bg-white/5 backdrop-blur-md;
+  }
+
+  .safe-px {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
   }
 }
 

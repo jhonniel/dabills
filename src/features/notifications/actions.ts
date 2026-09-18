@@ -230,7 +230,7 @@ export async function processDueRemindersAction(options?: {
         userId: ctx.userId,
         subscriptionName: subMap.get(item.subscription_id)?.name ?? "Subscription",
         amount: Number(subMap.get(item.subscription_id)?.amount ?? 0),
-        currency: subMap.get(item.subscription_id)?.currency ?? "USD",
+        currency: subMap.get(item.subscription_id)?.currency ?? "PHP",
       });
       await markReminderSent(item.id);
       processed += 1;
@@ -379,7 +379,7 @@ export async function sendTestReminderAction(): Promise<ActionResult> {
       type: "reminder_1d",
       subscriptionName: "Demo Subscription",
       dueDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-      amountLabel: formatMoney(12.99),
+      amountLabel: formatMoney(549),
       billingUrl: `${getAppUrl()}/dashboard/billing`,
     }),
     preferences,

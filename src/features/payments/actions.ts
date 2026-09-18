@@ -174,12 +174,11 @@ export async function settleBillAction(formData: FormData): Promise<
   });
 
   const paymentStatus: Payment["status"] = validation.overallMatch
-    ? "pending_verification"
-    : "pending";
+    ? "approved"
+    : "pending_verification";
 
-  const billStatus = validation.overallMatch
-    ? "pending_verification"
-    : bill.status;
+  const billStatus = validation.overallMatch ? "paid" : "pending_verification";
+  const paidAt = validation.overallMatch ? now : null;
 
   const reference =
     parsed.data.referenceNumber || extraction.referenceNumber || null;
@@ -193,9 +192,9 @@ export async function settleBillAction(formData: FormData): Promise<
     status: paymentStatus,
     reference_number: reference,
     merchant: extraction.merchant,
-    paid_at: null,
+    paid_at: paidAt,
     reviewed_by: null,
-    reviewed_at: null,
+    reviewed_at: validation.overallMatch ? now : null,
     rejection_reason: null,
     notes: parsed.data.notes ?? null,
     created_at: now,
@@ -225,9 +224,7 @@ export async function settleBillAction(formData: FormData): Promise<
 
   if (!isSupabaseConfigured() || userId === "demo-user") {
     await createDemoPayment(payment);
-    if (validation.overallMatch) {
-      await updateDemoBillStatus(bill.id, "pending_verification");
-    }
+    await updateDemoBillStatus(bill.id, billStatus);
   } else {
     const supabase = await createClient();
     const { error: paymentError } = await supabase.from("payments").insert({
@@ -240,6 +237,8 @@ export async function settleBillAction(formData: FormData): Promise<
       reference_number: payment.reference_number,
       merchant: payment.merchant,
       notes: payment.notes,
+      paid_at: paidAt,
+      reviewed_at: validation.overallMatch ? now : null,
     });
 
     if (paymentError) {
@@ -266,24 +265,27 @@ export async function settleBillAction(formData: FormData): Promise<
       });
     }
 
-    if (validation.overallMatch) {
-      await supabase
-        .from("billing_cycles")
-        .update({ status: billStatus })
-        .eq("id", bill.id)
-        .eq("user_id", userId);
-    }
+    await supabase
+      .from("billing_cycles")
+      .update({
+        status: billStatus,
+        paid_at: paidAt,
+      })
+      .eq("id", bill.id)
+      .eq("user_id", userId);
 
     // Keep a demo copy for history UI richness in mixed setups
     await createDemoPayment(payment);
   }
 
   revalidatePaymentPaths(bill.id);
+  revalidatePath("/admin/payments");
 
   try {
-    const { notifyPaymentReceivedAction } = await import(
-      "@/features/notifications/actions"
-    );
+    const {
+      notifyPaymentReceivedAction,
+      notifyPaymentApprovedAction,
+    } = await import("@/features/notifications/actions");
     await notifyPaymentReceivedAction({
       userId,
       email: userId === "demo-user" ? "demo@dabills.app" : undefined,
@@ -292,8 +294,17 @@ export async function settleBillAction(formData: FormData): Promise<
       currency: bill.currency,
       reference,
     });
+    if (validation.overallMatch) {
+      await notifyPaymentApprovedAction({
+        userId,
+        email: userId === "demo-user" ? "demo@dabills.app" : undefined,
+        subscriptionName: merchantName ?? "Subscription",
+        amount: Number(bill.amount),
+        currency: bill.currency,
+      });
+    }
   } catch (error) {
-    console.error("notifyPaymentReceivedAction", error);
+    console.error("payment notifications", error);
   }
 
   return {

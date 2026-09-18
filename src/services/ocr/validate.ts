@@ -88,8 +88,8 @@ export function validateOcrAgainstBill(
     });
   }
 
-  // Amount is required for an overall match; merchant/date strengthen confidence.
-  const overallMatch = amountMatch && (merchantMatch || dateMatch);
+  // Amount + date required for overall match (merchant is informational only).
+  const overallMatch = amountMatch && dateMatch;
 
   return {
     amountMatch,

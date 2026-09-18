@@ -8,7 +8,7 @@ import {
 import { getNextBillingDate } from "@/lib/billing/expenses";
 import type { SubscriptionInput } from "@/validators/subscription";
 
-const DEMO_COOKIE = "dabills_demo_subscriptions";
+const DEMO_COOKIE = "dabills_demo_subscriptions_v2";
 
 export async function readDemoSubscriptions(): Promise<SubscriptionWithCategory[]> {
   const store = await cookies();
@@ -33,6 +33,13 @@ async function writeDemoSubscriptions(items: SubscriptionWithCategory[]) {
   });
 }
 
+/** Used when syncing plan price to seats without going through subscription schema. */
+export async function writeDemoSubscriptionsForPriceSync(
+  items: SubscriptionWithCategory[]
+) {
+  await writeDemoSubscriptions(items);
+}
+
 function attachCategory(
   item: Omit<SubscriptionWithCategory, "category">
 ): SubscriptionWithCategory {
@@ -41,22 +48,30 @@ function attachCategory(
   return { ...item, category };
 }
 
-export async function createDemoSubscription(input: SubscriptionInput) {
+export async function createDemoSubscription(
+  input: SubscriptionInput,
+  userId = "demo-user",
+  planId: string | null = null,
+  options?: { nextBillingDate?: string }
+) {
   const items = await readDemoSubscriptions();
-  const nextBilling = getNextBillingDate(
-    input.renewalDate,
-    input.billingFrequency,
-    input.customIntervalDays
-  );
+  const nextBilling =
+    options?.nextBillingDate ??
+    getNextBillingDate(
+      input.renewalDate,
+      input.billingFrequency,
+      input.customIntervalDays
+    );
 
   const created = attachCategory({
     id: crypto.randomUUID(),
-    user_id: "demo-user",
+    user_id: userId,
+    plan_id: planId,
     category_id: input.categoryId ?? null,
     name: input.name,
     logo_url: input.logoUrl || null,
     amount: input.amount,
-    currency: input.currency || "USD",
+    currency: input.currency || "PHP",
     billing_frequency: input.billingFrequency,
     custom_interval_days: input.customIntervalDays ?? null,
     start_date: input.startDate,
@@ -96,7 +111,7 @@ export async function updateDemoSubscription(
     name: input.name,
     logo_url: input.logoUrl || null,
     amount: input.amount,
-    currency: input.currency || "USD",
+    currency: input.currency || "PHP",
     billing_frequency: input.billingFrequency,
     custom_interval_days: input.customIntervalDays ?? null,
     start_date: input.startDate,

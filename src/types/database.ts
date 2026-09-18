@@ -2,6 +2,10 @@ export type UserRole = "user" | "admin";
 
 export type SubscriptionStatus = "active" | "paused" | "cancelled";
 
+export type SubscriptionPlanStatus = "active" | "archived";
+
+export type AdminExpenseStatus = "active" | "archived";
+
 export type BillingFrequency =
   | "weekly"
   | "monthly"
@@ -117,6 +121,7 @@ export interface Category {
 export interface Subscription {
   id: string;
   user_id: string;
+  plan_id: string | null;
   category_id: string | null;
   name: string;
   logo_url: string | null;
@@ -134,6 +139,27 @@ export interface Subscription {
   created_at: string;
   updated_at: string;
 }
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  category_id: string | null;
+  logo_url: string | null;
+  amount: number;
+  currency: string;
+  billing_frequency: BillingFrequency;
+  custom_interval_days: number | null;
+  max_capacity: number;
+  status: SubscriptionPlanStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Plan row with seat occupancy for admin UI */
+export type SubscriptionPlanWithSeats = SubscriptionPlan & {
+  seats_used: number;
+};
 
 export interface BillingCycle {
   id: string;
@@ -185,6 +211,39 @@ export interface PaymentReceipt {
   confidence: number | null;
   amount_match: boolean | null;
   created_at: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  channel: string;
+  account_name: string;
+  account_number: string;
+  instructions: string | null;
+  qr_image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Platform / ops expense managed by admins */
+export interface AdminExpense {
+  id: string;
+  name: string;
+  category_id: string | null;
+  amount: number;
+  currency: string;
+  is_recurring: boolean;
+  billing_frequency: BillingFrequency | null;
+  custom_interval_days: number | null;
+  expense_date: string;
+  next_recurrence_date: string | null;
+  status: AdminExpenseStatus;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Notification {
@@ -253,6 +312,16 @@ export interface Database {
         Update: Partial<Category>;
         Relationships: [];
       };
+      subscription_plans: {
+        Row: SubscriptionPlan;
+        Insert: Partial<SubscriptionPlan> &
+          Pick<
+            SubscriptionPlan,
+            "name" | "amount" | "billing_frequency" | "max_capacity"
+          >;
+        Update: Partial<SubscriptionPlan>;
+        Relationships: [];
+      };
       subscriptions: {
         Row: Subscription;
         Insert: Partial<Subscription> &
@@ -306,6 +375,20 @@ export interface Database {
         Update: Partial<PaymentReceipt>;
         Relationships: [];
       };
+      payment_methods: {
+        Row: PaymentMethod;
+        Insert: Partial<PaymentMethod> &
+          Pick<PaymentMethod, "channel" | "account_name" | "account_number">;
+        Update: Partial<PaymentMethod>;
+        Relationships: [];
+      };
+      admin_expenses: {
+        Row: AdminExpense;
+        Insert: Partial<AdminExpense> &
+          Pick<AdminExpense, "name" | "amount" | "expense_date">;
+        Update: Partial<AdminExpense>;
+        Relationships: [];
+      };
       notifications: {
         Row: Notification;
         Insert: Partial<Notification> &
@@ -341,6 +424,8 @@ export interface Database {
     Enums: {
       user_role: UserRole;
       subscription_status: SubscriptionStatus;
+      subscription_plan_status: SubscriptionPlanStatus;
+      admin_expense_status: AdminExpenseStatus;
       billing_frequency: BillingFrequency;
       bill_status: BillStatus;
       payment_status: PaymentStatus;

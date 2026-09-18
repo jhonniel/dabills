@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getNextBillingDate } from "@/lib/billing/expenses";
 import {
-  createDemoSubscription,
   deleteDemoSubscription,
   updateDemoSubscription,
 } from "@/lib/billing/demo-store";
@@ -19,10 +18,22 @@ export type ActionResult<T = undefined> =
   | { success: true; data?: T }
   | { success: false; error: string };
 
+const ADMIN_ASSIGNED_ERROR =
+  "This subscription was assigned by an admin and can’t be edited or deleted.";
+
+async function assertUserCanMutateSubscription(id: string): Promise<ActionResult> {
+  const { getSubscription } = await import("./queries");
+  const { item } = await getSubscription(id);
+  if (!item) return { success: false, error: "Subscription not found" };
+  if (item.plan_id) {
+    return { success: false, error: ADMIN_ASSIGNED_ERROR };
+  }
+  return { success: true };
+}
+
 function revalidateSubscriptionPaths(id?: string) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/subscriptions");
-  revalidatePath("/dashboard/analytics");
   revalidatePath("/dashboard/billing");
   if (id) {
     revalidatePath(`/dashboard/subscriptions/${id}`);
@@ -33,75 +44,21 @@ function revalidateSubscriptionPaths(id?: string) {
 export async function createSubscriptionAction(
   input: SubscriptionInput
 ): Promise<ActionResult<{ id: string }>> {
-  const parsed = subscriptionSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? "Invalid subscription",
-    };
-  }
-
-  if (!isSupabaseConfigured()) {
-    const created = await createDemoSubscription(parsed.data);
-    revalidateSubscriptionPaths(created.id);
-    return { success: true, data: { id: created.id } };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    const created = await createDemoSubscription(parsed.data);
-    revalidateSubscriptionPaths(created.id);
-    return { success: true, data: { id: created.id } };
-  }
-
-  const nextBilling = getNextBillingDate(
-    parsed.data.renewalDate,
-    parsed.data.billingFrequency,
-    parsed.data.customIntervalDays
-  );
-
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .insert({
-      user_id: user.id,
-      category_id: parsed.data.categoryId ?? null,
-      name: parsed.data.name,
-      logo_url: parsed.data.logoUrl || null,
-      amount: parsed.data.amount,
-      currency: parsed.data.currency || "USD",
-      billing_frequency: parsed.data.billingFrequency,
-      custom_interval_days: parsed.data.customIntervalDays ?? null,
-      start_date: parsed.data.startDate,
-      renewal_date: parsed.data.renewalDate,
-      next_billing_date: nextBilling,
-      auto_renewal: parsed.data.autoRenewal,
-      reminder_days: parsed.data.reminderDays,
-      status: parsed.data.status,
-      notes: parsed.data.notes ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    return { success: false, error: error?.message ?? "Failed to create subscription" };
-  }
-
-  // Generate initial billing cycles for the new subscription (Phase 3)
-  const { generateUpcomingBillsAction } = await import("@/features/billing/actions");
-  await generateUpcomingBillsAction({ horizonDays: 120, maxCycles: 4 });
-
-  revalidateSubscriptionPaths(data.id as string);
-  return { success: true, data: { id: data.id as string } };
+  void input;
+  return {
+    success: false,
+    error:
+      "Only admins can assign subscriptions. Ask an admin to add one for your account.",
+  };
 }
 
 export async function updateSubscriptionAction(
   id: string,
   input: SubscriptionInput
 ): Promise<ActionResult> {
+  const gate = await assertUserCanMutateSubscription(id);
+  if (!gate.success) return gate;
+
   const parsed = subscriptionSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -142,7 +99,7 @@ export async function updateSubscriptionAction(
       name: parsed.data.name,
       logo_url: parsed.data.logoUrl || null,
       amount: parsed.data.amount,
-      currency: parsed.data.currency || "USD",
+      currency: parsed.data.currency || "PHP",
       billing_frequency: parsed.data.billingFrequency,
       custom_interval_days: parsed.data.customIntervalDays ?? null,
       start_date: parsed.data.startDate,
@@ -167,6 +124,9 @@ export async function updateSubscriptionAction(
 export async function deleteSubscriptionAction(
   id: string
 ): Promise<ActionResult> {
+  const gate = await assertUserCanMutateSubscription(id);
+  if (!gate.success) return gate;
+
   if (!isSupabaseConfigured()) {
     await deleteDemoSubscription(id);
     revalidateSubscriptionPaths(id);
@@ -202,6 +162,9 @@ export async function updateSubscriptionStatusAction(
   id: string,
   status: "active" | "paused" | "cancelled"
 ): Promise<ActionResult> {
+  const gate = await assertUserCanMutateSubscription(id);
+  if (!gate.success) return gate;
+
   if (!isSupabaseConfigured()) {
     const { getSubscription } = await import("./queries");
     const { item } = await getSubscription(id);

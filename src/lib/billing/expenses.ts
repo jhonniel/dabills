@@ -1,5 +1,7 @@
 import type { BillingFrequency, Subscription } from "@/types";
 
+import { DEFAULT_CURRENCY, DEFAULT_LOCALE } from "@/lib/constants";
+
 /** Normalize any billing amount to an equivalent monthly cost. */
 export function toMonthlyAmount(
   amount: number,
@@ -122,8 +124,8 @@ export function buildMonthlyExpenseSeries(
   return series;
 }
 
-export function formatMoney(amount: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", {
+export function formatMoney(amount: number, currency = DEFAULT_CURRENCY) {
+  return new Intl.NumberFormat(DEFAULT_LOCALE, {
     style: "currency",
     currency,
     maximumFractionDigits: 2,

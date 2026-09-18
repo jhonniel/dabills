@@ -10,7 +10,7 @@ export type DemoPaymentRecord = Payment & {
   validation?: OcrValidationResult | null;
 };
 
-const DEMO_PAYMENTS_COOKIE = "dabills_demo_payments";
+const DEMO_PAYMENTS_COOKIE = "dabills_demo_payments_v2";
 
 export async function readDemoPayments(): Promise<DemoPaymentRecord[]> {
   const store = await cookies();

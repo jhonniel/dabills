@@ -3,14 +3,10 @@ import { Suspense } from "react";
 import { BillingCalendar } from "@/components/billing/billing-calendar";
 import { BillingToolbar } from "@/components/billing/billing-toolbar";
 import { BillsCards, BillsTable } from "@/components/billing/bills-list";
-import {
-  BillingTimeline,
-  ReminderScheduleCard,
-} from "@/components/billing/billing-timeline";
+import { BillingTimeline } from "@/components/billing/billing-timeline";
 import { StatCard } from "@/components/dashboard/stat-card";
 import {
   getBillingOverview,
-  getReminderSchedulePreview,
   listBillingCycles,
 } from "@/features/billing/queries";
 import { formatMoney } from "@/lib/billing/expenses";
@@ -25,8 +21,8 @@ import {
 function buildMonthOptions() {
   const options: string[] = [];
   const now = new Date();
-  for (let i = -1; i <= 4; i += 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+  for (let i = 0; i <= 11; i += 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     options.push(
       `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
     );
@@ -51,12 +47,12 @@ export default async function BillingPage({
         ? (params.view as BillingFilters["view"])
         : "table",
     month: typeof params.month === "string" ? params.month : undefined,
+    horizon: "past",
   };
 
-  const [{ items }, overview, reminders] = await Promise.all([
+  const [{ items }, overview] = await Promise.all([
     listBillingCycles(filters),
     getBillingOverview(),
-    getReminderSchedulePreview(),
   ]);
 
   const view = filters.view ?? "table";
@@ -64,17 +60,15 @@ export default async function BillingPage({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Billing
         </h1>
-        <p className="mt-2 text-muted-foreground">
-          Automatically generated recurring bills with calendar, timeline, and
-          reminder scheduling architecture.
+        <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+          Past bills only — due today or earlier.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Upcoming" value={String(overview.counts.upcoming)} />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Pending" value={String(overview.counts.pending)} />
         <StatCard
           title="Overdue"
@@ -85,7 +79,7 @@ export default async function BillingPage({
         <Card className="border-white/10 bg-white/[0.03]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Amount due
+              Still unpaid
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -93,7 +87,7 @@ export default async function BillingPage({
               {formatMoney(overview.amountDue)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {overview.counts.dueThisWeek} due this week
+              {overview.counts.pendingVerification} awaiting verification
             </p>
           </CardContent>
         </Card>
@@ -103,25 +97,21 @@ export default async function BillingPage({
         <BillingToolbar monthOptions={buildMonthOptions()} />
       </Suspense>
 
-      {view === "table" && <BillsTable items={items} />}
+      {view === "table" && (
+        <>
+          <div className="md:hidden">
+            <BillsCards items={items} />
+          </div>
+          <div className="hidden md:block">
+            <BillsTable items={items} />
+          </div>
+        </>
+      )}
       {view === "cards" && <BillsCards items={items} />}
       {view === "calendar" && (
         <BillingCalendar items={items} initialMonth={filters.month} />
       )}
-      {view === "timeline" && (
-        <div className="grid gap-4 xl:grid-cols-5">
-          <div className="xl:col-span-3">
-            <BillingTimeline items={items} />
-          </div>
-          <div className="xl:col-span-2">
-            <ReminderScheduleCard reminders={reminders} />
-          </div>
-        </div>
-      )}
-
-      {view !== "timeline" && (
-        <ReminderScheduleCard reminders={reminders.slice(0, 5)} />
-      )}
+      {view === "timeline" && <BillingTimeline items={items} />}
     </div>
   );
 }

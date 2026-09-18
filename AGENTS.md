@@ -6,7 +6,7 @@
 
 ## Local notes
 - Admin portal: `/admin` (demo mode grants admin automatically without Supabase)
-- With Supabase: set `profiles.role = 'admin'` for access
+- With Supabase: `npm run db:seed` → admin `admin@dabills.app` / `DaBillsAdmin1!`, user `jordan@example.com` / `DaBillsUser1!`
 - Copy `.env.example` → `.env.local` before wiring services
 - Health: `GET /api/health`
-- After schema changes, apply `003_security_hardening.sql` as well as 001–002
+- After schema changes, apply migrations 001–009 in order

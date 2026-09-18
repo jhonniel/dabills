@@ -11,6 +11,7 @@ import {
   updateSubscriptionAction,
 } from "@/features/subscriptions/actions";
 import type { SubscriptionWithCategory } from "@/lib/billing/demo-data";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import type { Category } from "@/types";
 import {
   subscriptionSchema,
@@ -37,7 +38,7 @@ function toFormValues(item?: SubscriptionWithCategory | null): SubscriptionInput
       categoryId: null,
       logoUrl: "",
       amount: 0,
-      currency: "USD",
+      currency: DEFAULT_CURRENCY,
       billingFrequency: "monthly",
       customIntervalDays: null,
       startDate: today,
@@ -175,7 +176,19 @@ export function SubscriptionForm({
 
         <div className="space-y-2">
           <Label htmlFor="currency">Currency</Label>
-          <Input id="currency" maxLength={3} {...form.register("currency")} />
+          <Select
+            value={form.watch("currency")}
+            onValueChange={(value) => form.setValue("currency", value)}
+          >
+            <SelectTrigger id="currency">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PHP">PHP (₱)</SelectItem>
+              <SelectItem value="USD">USD ($)</SelectItem>
+              <SelectItem value="EUR">EUR (€)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">

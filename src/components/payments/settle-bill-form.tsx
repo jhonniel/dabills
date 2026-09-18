@@ -87,8 +87,8 @@ export function SettleBillForm({
                 setResult(response.data ?? null);
                 toast.success(
                   response.data?.validation.overallMatch
-                    ? "Receipt matched — pending verification"
-                    : "Receipt uploaded with mismatches — needs review"
+                    ? "Receipt matched — payment auto-approved"
+                    : "Receipt mismatches — sent for admin review"
                 );
                 router.refresh();
               });

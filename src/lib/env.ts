@@ -6,7 +6,8 @@ export function isSupabaseConfigured() {
     url &&
       key &&
       !url.includes("your-project") &&
-      key !== "your-anon-key"
+      key !== "your-anon-key" &&
+      !key.includes("your-anon")
   );
 }
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { SubscriptionForm } from "@/components/subscriptions/subscription-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,9 @@ export default async function EditSubscriptionPage({
   ]);
 
   if (!item) notFound();
+  if (item.plan_id) {
+    redirect(`/dashboard/subscriptions/${item.id}`);
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

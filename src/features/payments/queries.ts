@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { readDemoPayments, type DemoPaymentRecord } from "@/lib/payments/demo-store";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   paymentFiltersSchema,
@@ -29,6 +30,34 @@ function applyFilters(items: PaymentListItem[], filters: PaymentFilters) {
   return result.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+}
+
+function mapPaymentRows(data: Array<Record<string, unknown>>): PaymentListItem[] {
+  return data.map((row) => {
+    const receipts = row.receipt as
+      | PaymentListItem["receipt"][]
+      | PaymentListItem["receipt"];
+    const receipt = Array.isArray(receipts)
+      ? (receipts[0] ?? null)
+      : (receipts ?? null);
+    const billingCycle = row.billing_cycle as
+      | {
+          due_date?: string;
+          subscription?: { name?: string } | Array<{ name?: string }>;
+        }
+      | null;
+    const subscription = Array.isArray(billingCycle?.subscription)
+      ? billingCycle?.subscription[0]
+      : billingCycle?.subscription;
+
+    return {
+      ...((row as unknown) as PaymentListItem),
+      receipt,
+      due_date: billingCycle?.due_date ?? null,
+      subscription_name: subscription?.name ?? null,
+      validation: null,
+    } satisfies PaymentListItem;
+  });
 }
 
 export async function listPayments(filters: PaymentFilters = {}) {
@@ -62,26 +91,47 @@ export async function listPayments(filters: PaymentFilters = {}) {
     return { items: [] as PaymentListItem[], isDemo: false as const };
   }
 
-  const mapped = ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
-    const receipts = row.receipt as PaymentListItem["receipt"][] | PaymentListItem["receipt"];
-    const receipt = Array.isArray(receipts) ? receipts[0] ?? null : receipts ?? null;
-    const billingCycle = row.billing_cycle as
-      | { due_date?: string; subscription?: { name?: string } | Array<{ name?: string }> }
-      | null;
-    const subscription = Array.isArray(billingCycle?.subscription)
-      ? billingCycle?.subscription[0]
-      : billingCycle?.subscription;
+  return {
+    items: applyFilters(
+      mapPaymentRows((data ?? []) as Array<Record<string, unknown>>),
+      parsed
+    ),
+    isDemo: false as const,
+  };
+}
+
+/** Admin: all users' payments (service role). */
+export async function listAllPaymentsForAdmin(filters: PaymentFilters = {}) {
+  const parsed = paymentFiltersSchema.parse(filters);
+
+  if (!isSupabaseConfigured()) {
+    const items = applyFilters(await readDemoPayments(), parsed);
+    return { items, isDemo: true as const };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("payments")
+      .select(
+        "*, receipt:payment_receipts(*), billing_cycle:billing_cycles(due_date, subscription:subscriptions(name))"
+      )
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
 
     return {
-      ...((row as unknown) as PaymentListItem),
-      receipt,
-      due_date: billingCycle?.due_date ?? null,
-      subscription_name: subscription?.name ?? null,
-      validation: null,
-    } satisfies PaymentListItem;
-  });
-
-  return { items: applyFilters(mapped, parsed), isDemo: false as const };
+      items: applyFilters(
+        mapPaymentRows((data ?? []) as Array<Record<string, unknown>>),
+        parsed
+      ),
+      isDemo: false as const,
+    };
+  } catch (error) {
+    console.error("listAllPaymentsForAdmin", error);
+    const items = applyFilters(await readDemoPayments(), parsed);
+    return { items, isDemo: true as const };
+  }
 }
 
 export async function getPayment(id: string) {

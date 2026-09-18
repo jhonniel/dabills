@@ -100,29 +100,54 @@ export function OcrResultCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="overflow-hidden rounded-2xl border border-white/10">
-          <div className="grid grid-cols-4 gap-2 border-b border-white/10 bg-white/[0.03] px-4 py-2 text-xs text-muted-foreground">
-            <span>Field</span>
-            <span>Expected</span>
-            <span>Extracted</span>
-            <span>Status</span>
-          </div>
-          {rows.map((row) => (
-            <div
-              key={row.field}
-              className={cn(
-                "grid grid-cols-4 gap-2 px-4 py-3 text-sm",
-                !row.match && "bg-rose-500/10"
-              )}
-            >
-              <span className="font-medium">{row.field}</span>
-              <span className="text-muted-foreground">{row.expected}</span>
-              <span>{row.actual}</span>
-              <span className={row.match ? "text-teal-300" : "text-rose-300"}>
-                {row.match ? "Match" : "Mismatch"}
-              </span>
+        <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <div className="hidden min-w-[28rem] sm:block">
+            <div className="grid grid-cols-4 gap-2 border-b border-white/10 bg-white/[0.03] px-4 py-2 text-xs text-muted-foreground">
+              <span>Field</span>
+              <span>Expected</span>
+              <span>Extracted</span>
+              <span>Status</span>
             </div>
-          ))}
+            {rows.map((row) => (
+              <div
+                key={row.field}
+                className={cn(
+                  "grid grid-cols-4 gap-2 px-4 py-3 text-sm",
+                  !row.match && "bg-rose-500/10"
+                )}
+              >
+                <span className="font-medium">{row.field}</span>
+                <span className="text-muted-foreground">{row.expected}</span>
+                <span>{row.actual}</span>
+                <span className={row.match ? "text-teal-300" : "text-rose-300"}>
+                  {row.match ? "Match" : "Mismatch"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2 p-3 sm:hidden">
+            {rows.map((row) => (
+              <div
+                key={row.field}
+                className={cn(
+                  "rounded-xl border border-white/10 px-3 py-3 text-sm",
+                  !row.match && "border-rose-400/20 bg-rose-500/10"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{row.field}</span>
+                  <span className={row.match ? "text-teal-300" : "text-rose-300"}>
+                    {row.match ? "Match" : "Mismatch"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Expected: {row.expected}
+                </p>
+                <p className="mt-1 text-xs">Extracted: {row.actual}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <p className="text-sm text-muted-foreground">
@@ -130,7 +155,8 @@ export function OcrResultCard({
           <span className="capitalize text-foreground">
             {status.replaceAll("_", " ")}
           </span>
-          . Matched receipts move to pending verification until approved.
+          . Amount and date matches are auto-approved; mismatches need admin
+          review.
         </p>
 
         <div className="flex flex-wrap gap-2">

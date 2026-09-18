@@ -8,28 +8,134 @@ import {
 import { readDemoSubscriptions } from "@/lib/billing/demo-store";
 import { readDemoBillingCycles } from "@/lib/billing/demo-bills";
 import { readDemoEmailLogs } from "@/lib/notifications/demo-store";
-import { listPayments } from "@/features/payments/queries";
+import { listAllPaymentsForAdmin } from "@/features/payments/queries";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { InviteCode, Profile } from "@/types";
+import { readDemoSubscriptionPlans } from "@/lib/subscriptions/plans-store";
+import { readDemoAdminExpenses } from "@/lib/expenses/expenses-store";
+import {
+  buildMonthlyAdminExpenseSeries,
+  buildMonthlySalesSeries,
+  mergeFinanceSeries,
+  sumExpensesInCurrentMonth,
+  sumSalesInCurrentMonth,
+} from "@/lib/admin/finance-series";
+import type {
+  AdminExpense,
+  InviteCode,
+  Profile,
+  Subscription,
+  SubscriptionPlan,
+  SubscriptionPlanWithSeats,
+} from "@/types";
+
+async function countDemoSeats(planId: string) {
+  const subs = await readDemoSubscriptions();
+  return subs.filter(
+    (s) =>
+      s.plan_id === planId &&
+      (s.status === "active" || s.status === "paused")
+  ).length;
+}
+
+async function listDemoPlansWithSeats() {
+  const [plans, subs] = await Promise.all([
+    readDemoSubscriptionPlans(),
+    readDemoSubscriptions(),
+  ]);
+  const counts = new Map<string, number>();
+  for (const sub of subs) {
+    if (
+      !sub.plan_id ||
+      (sub.status !== "active" && sub.status !== "paused")
+    ) {
+      continue;
+    }
+    counts.set(sub.plan_id, (counts.get(sub.plan_id) ?? 0) + 1);
+  }
+  return plans.map((plan) => ({
+    ...plan,
+    seats_used: counts.get(plan.id) ?? 0,
+  }));
+}
+
+export async function listSubscriptionPlans(): Promise<{
+  items: SubscriptionPlanWithSeats[];
+  isDemo: boolean;
+}> {
+  await requireAdmin();
+
+  if (!isSupabaseConfigured()) {
+    return { items: await listDemoPlansWithSeats(), isDemo: true };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data: plans, error } = await admin
+      .from("subscription_plans")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error || !plans) {
+      return { items: await listDemoPlansWithSeats(), isDemo: true };
+    }
+
+    const planRows = plans as SubscriptionPlan[];
+    if (planRows.length === 0) {
+      return { items: [], isDemo: false };
+    }
+
+    const { data: seats } = await admin
+      .from("subscriptions")
+      .select("plan_id, status")
+      .in(
+        "plan_id",
+        planRows.map((p) => p.id)
+      )
+      .in("status", ["active", "paused"]);
+
+    const counts = new Map<string, number>();
+    for (const row of (seats ?? []) as Pick<Subscription, "plan_id" | "status">[]) {
+      if (!row.plan_id) continue;
+      counts.set(row.plan_id, (counts.get(row.plan_id) ?? 0) + 1);
+    }
+
+    return {
+      items: planRows.map((plan) => ({
+        ...plan,
+        seats_used: counts.get(plan.id) ?? 0,
+      })),
+      isDemo: false,
+    };
+  } catch {
+    return { items: await listDemoPlansWithSeats(), isDemo: true };
+  }
+}
 
 export async function getAdminOverview() {
   await requireAdmin();
 
-  const [users, invites, payments, subscriptions, bills, logs, emails] =
+  const [users, invites, payments, subscriptions, bills, logs, emails, expenses] =
     await Promise.all([
       readAdminUsers(),
       readAdminInvites(),
-      listPayments({ status: "all" }),
+      listAllPaymentsForAdmin({ status: "all" }),
       readDemoSubscriptions(),
       readDemoBillingCycles(),
       readActivityLogs(),
       readDemoEmailLogs(),
+      listAdminExpenses(),
     ]);
 
   const pendingPayments = payments.items.filter(
     (p) => p.status === "pending_verification"
   );
+
+  const salesSeries = buildMonthlySalesSeries(payments.items, 6);
+  const expenseSeries = buildMonthlyAdminExpenseSeries(expenses.items, 6);
+  const financeSeries = mergeFinanceSeries(salesSeries, expenseSeries);
+  const salesThisMonth = sumSalesInCurrentMonth(payments.items);
+  const expensesThisMonth = sumExpensesInCurrentMonth(expenses.items);
 
   return {
     usersCount: users.length,
@@ -41,6 +147,10 @@ export async function getAdminOverview() {
     approvedVolume: payments.items
       .filter((p) => p.status === "approved")
       .reduce((sum, p) => sum + Number(p.amount), 0),
+    salesThisMonth,
+    expensesThisMonth,
+    netThisMonth: salesThisMonth - expensesThisMonth,
+    financeSeries,
     recentActivity: logs.slice(0, 8),
     emailsSent: emails.filter((e) => e.status === "sent").length,
     pendingPayments: pendingPayments.slice(0, 5),
@@ -117,11 +227,40 @@ export async function listAdminEmails() {
   return { items: await readDemoEmailLogs(), isDemo: true as const };
 }
 
+export async function listAdminExpenses(): Promise<{
+  items: AdminExpense[];
+  isDemo: boolean;
+}> {
+  await requireAdmin();
+
+  if (!isSupabaseConfigured()) {
+    return { items: await readDemoAdminExpenses(), isDemo: true };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("admin_expenses")
+      .select("*")
+      .order("expense_date", { ascending: false });
+
+    if (error) {
+      console.warn("listAdminExpenses", error.message);
+      return { items: [], isDemo: false };
+    }
+
+    return { items: (data ?? []) as AdminExpense[], isDemo: false };
+  } catch (error) {
+    console.warn("listAdminExpenses", error);
+    return { items: [], isDemo: false };
+  }
+}
+
 export async function getAdminAnalytics() {
   await requireAdmin();
   const [users, payments, subscriptions, bills] = await Promise.all([
     readAdminUsers(),
-    listPayments({ status: "all" }),
+    listAllPaymentsForAdmin({ status: "all" }),
     readDemoSubscriptions(),
     readDemoBillingCycles(),
   ]);
