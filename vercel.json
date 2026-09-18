@@ -1,12 +1,20 @@
-# Vercel Cron — billing + notification jobs
-# Requires CRON_SECRET env var. Protect endpoints with Authorization: Bearer $CRON_SECRET
-
-crons:
-  - path: /api/cron/generate-bills
-    schedule: "0 6 * * *"
-  - path: /api/cron/refresh-bill-statuses
-    schedule: "15 6 * * *"
-  - path: /api/cron/schedule-reminders
-    schedule: "30 6 * * *"
-  - path: /api/cron/process-reminders
-    schedule: "45 6 * * *"
+{
+  "crons": [
+    {
+      "path": "/api/cron/generate-bills",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-bill-statuses",
+      "schedule": "15 6 * * *"
+    },
+    {
+      "path": "/api/cron/schedule-reminders",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/process-reminders",
+      "schedule": "45 6 * * *"
+    }
+  ]
+}
