@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured, supabaseMissingMessage } from "@/lib/env";
 import { enforceMutationGuard } from "@/lib/security/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -29,8 +29,7 @@ function ensureConfigured(): ActionResult | null {
   if (!isSupabaseConfigured()) {
     return {
       success: false,
-      error:
-        "Supabase is not configured. Add your project credentials to .env.local.",
+      error: supabaseMissingMessage(),
     };
   }
   return null;

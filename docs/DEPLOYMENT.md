@@ -39,18 +39,27 @@ Vercel Cron injects this when `CRON_SECRET` is set in the project env.
 
 ## 3. Environment variables
 
+Set these in **Vercel → Project → Settings → Environment Variables** for
+**Production** (and Preview if you use preview deploys). Copy values from your
+local `.env.local` — `.env.local` is never deployed.
+
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | Yes | Production URL, e.g. `https://dabills.vercel.app` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only; never expose to the client |
+| `NEXT_PUBLIC_APP_URL` | Yes | Production URL, e.g. `https://your-app.vercel.app` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase → Project Settings → API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase → API → `anon` `public` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase → API → `service_role` (server-only) |
 | `CRON_SECRET` | Yes (prod) | Strong random secret for cron routes |
 | `RESEND_API_KEY` | Optional | Without it, emails mock-log |
 | `RESEND_FROM_EMAIL` | Optional | Verified sender domain in Resend |
 | `OCR_PROVIDER` | Optional | `mock` (default locally), `ocrspace`, or `google-vision` |
 | `OCR_SPACE_API_KEY` | If ocrspace | OCR.space key |
 | `GOOGLE_VISION_API_KEY` | If google-vision | Vision API key |
+
+After saving env vars, **Redeploy** (Deployments → … → Redeploy).  
+`NEXT_PUBLIC_*` values are baked in at build time.
+
+Confirm with `/api/health` — `checks.supabaseConfigured` should be `true`.
 
 ## 4. Post-deploy smoke test
 

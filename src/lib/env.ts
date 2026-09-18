@@ -1,6 +1,6 @@
 export function isSupabaseConfigured() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
 
   return Boolean(
     url &&
@@ -9,6 +9,14 @@ export function isSupabaseConfigured() {
       key !== "your-anon-key" &&
       !key.includes("your-anon")
   );
+}
+
+/** User-facing message when Supabase env vars are missing. */
+export function supabaseMissingMessage() {
+  if (process.env.VERCEL) {
+    return "Supabase is not configured on this deployment. Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY in the Vercel project Environment Variables, then redeploy.";
+  }
+  return "Supabase is not configured. Add your project credentials to .env.local.";
 }
 
 function normalizeAppUrl(value: string | undefined | null) {
