@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 
 export async function GET() {
   const ocrProvider = process.env.OCR_PROVIDER ?? "mock";
@@ -21,7 +21,7 @@ export async function GET() {
       cronSecretConfigured: Boolean(
         process.env.CRON_SECRET && process.env.CRON_SECRET !== "change-me-in-production"
       ),
-      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      appUrl: getAppUrl(),
     },
     timestamp: new Date().toISOString(),
   });

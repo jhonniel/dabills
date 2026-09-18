@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Syne } from "next/font/google";
 import { SkipToContent } from "@/components/layout/skip-to-content";
 import { AppProviders } from "@/components/providers/app-providers";
 import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { getAppUrl } from "@/lib/env";
 
 import "./globals.css";
 
@@ -41,9 +42,7 @@ export const metadata: Metadata = {
   },
   description:
     "Track every subscription. Never miss a payment. Manage recurring bills effortlessly with DaBills.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(getAppUrl()),
   applicationName: APP_NAME,
   appleWebApp: {
     capable: true,
