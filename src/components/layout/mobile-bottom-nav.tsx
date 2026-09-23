@@ -31,7 +31,7 @@ export function MobileBottomNav({
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
     >
-      <div className="mx-auto flex h-14 max-w-lg items-stretch justify-around px-1">
+      <div className="safe-px mx-auto flex h-14 max-w-lg items-stretch justify-around">
         {tabs.map((tab) => {
           const active = "exact" in tab && tab.exact
             ? pathname === tab.href

@@ -5,7 +5,7 @@ const SIZES = {
   sm: { className: "h-7 w-auto", width: 250, height: 70 },
   md: { className: "h-8 w-auto", width: 286, height: 80 },
   lg: { className: "h-10 w-auto", width: 357, height: 100 },
-  hero: { className: "h-14 w-auto sm:h-[4.5rem] lg:h-24", width: 480, height: 135 },
+  hero: { className: "h-12 w-auto max-w-full sm:h-[4.5rem] lg:h-24", width: 480, height: 135 },
 } as const;
 
 /** Cache-bust when logo assets are updated */

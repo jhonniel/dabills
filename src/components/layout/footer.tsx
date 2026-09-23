@@ -6,7 +6,7 @@ import { APP_NAME } from "@/lib/constants";
 export function Footer() {
   return (
     <footer className="border-t border-white/10 bg-[#070b12]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <div className="safe-px mx-auto flex max-w-7xl flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <AppLogo size="sm" />
           <div>

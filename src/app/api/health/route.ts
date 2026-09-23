@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
+import { activeOcrProviderLabel, isLiveOcrEnabled } from "@/services/ocr/config";
 
 export async function GET() {
-  const ocrProvider = process.env.OCR_PROVIDER ?? "mock";
   const emailConfigured = Boolean(
     process.env.RESEND_API_KEY &&
       process.env.RESEND_FROM_EMAIL &&
@@ -17,9 +17,11 @@ export async function GET() {
     checks: {
       supabaseConfigured: isSupabaseConfigured(),
       emailConfigured,
-      ocrProvider,
+      ocrProvider: activeOcrProviderLabel(),
+      ocrLive: isLiveOcrEnabled(),
       cronSecretConfigured: Boolean(
-        process.env.CRON_SECRET && process.env.CRON_SECRET !== "change-me-in-production"
+        process.env.CRON_SECRET &&
+          process.env.CRON_SECRET !== "change-me-in-production"
       ),
       appUrl: getAppUrl(),
     },

@@ -46,7 +46,7 @@ export function SubscriptionCarousel({ plans }: { plans: ShowcasePlan[] }) {
         id="showcase"
         className="relative border-t border-white/10 bg-[#070b12] py-14 sm:py-20"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl safe-px">
           <p className="text-sm font-medium text-cyan-400">Subscriptions</p>
           <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             Plans you can subscribe to
@@ -67,7 +67,7 @@ export function SubscriptionCarousel({ plans }: { plans: ShowcasePlan[] }) {
       id="showcase"
       className="relative border-t border-white/10 bg-[#070b12] py-14 sm:py-20"
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl safe-px">
         <div className="mb-8 max-w-lg sm:mb-10">
           <p className="text-sm font-medium text-cyan-400">Subscriptions</p>
           <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">

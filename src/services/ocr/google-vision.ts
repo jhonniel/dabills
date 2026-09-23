@@ -2,7 +2,7 @@ import type { OcrExtractionResult, OcrProvider } from "./types";
 
 /**
  * Google Cloud Vision OCR provider (DOCUMENT_TEXT_DETECTION).
- * Enable with OCR_PROVIDER=google-vision and GOOGLE_VISION_API_KEY.
+ * Extracts only amount + transfer reference for payment proof.
  */
 export class GoogleVisionProvider implements OcrProvider {
   readonly name = "google-vision";
@@ -53,14 +53,10 @@ export class GoogleVisionProvider implements OcrProvider {
       "";
 
     return {
-      merchant:
-        text
-          .split("\n")
-          .map((line) => line.trim())
-          .find((line) => line.length > 2) ?? null,
+      merchant: null,
       amount: parseAmount(text),
       referenceNumber: parseReference(text),
-      date: parseDate(text),
+      date: null,
       confidence: text ? 0.8 : 0,
       raw: raw as unknown as Record<string, unknown>,
     };
@@ -68,23 +64,29 @@ export class GoogleVisionProvider implements OcrProvider {
 }
 
 function parseAmount(text: string): number | null {
-  const match = text.match(
-    /(?:PHP|USD|\$|₱)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+\.[0-9]{2})/i
-  );
-  if (!match?.[1]) return null;
-  return Number(match[1].replace(/,/g, ""));
+  const patterns = [
+    /(?:amount|total|paid|sent|transfer(?:red)?)\s*[:\-]?\s*(?:PHP|USD|₱|P)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2})?)/i,
+    /(?:PHP|USD|₱)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2})?)/i,
+    /([0-9]{1,3}(?:,[0-9]{3})+\.[0-9]{2})/,
+    /([0-9]+\.[0-9]{2})/,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match?.[1]) continue;
+    const value = Number(match[1].replace(/,/g, ""));
+    if (!Number.isNaN(value) && value > 0) return value;
+  }
+  return null;
 }
 
 function parseReference(text: string): string | null {
-  const match = text.match(
-    /(?:ref(?:erence)?(?:\s*(?:no|number|#))?[:\s-]*)([A-Z0-9-]{6,})/i
-  );
-  return match?.[1] ?? null;
-}
-
-function parseDate(text: string): string | null {
-  const match = text.match(
-    /(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/
-  );
-  return match?.[1] ?? null;
+  const patterns = [
+    /(?:ref(?:erence)?(?:\s*(?:no\.?|number|#))?|txn(?:\s*id)?|transaction(?:\s*(?:id|no\.?|number))?)\s*[:\-#]?\s*([A-Z0-9-]{6,})/i,
+    /\b([0-9]{10,})\b/,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
 }

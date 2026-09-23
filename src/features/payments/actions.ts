@@ -15,6 +15,7 @@ import { storeReceipt } from "@/lib/payments/storage";
 import { enforceMutationGuard } from "@/lib/security/guards";
 import { sanitizePlainText } from "@/lib/security/request";
 import { runOcrExtraction } from "@/services/ocr/provider";
+import { isLiveOcrEnabled } from "@/services/ocr/config";
 import { validateOcrAgainstBill } from "@/services/ocr/validate";
 import { createClient } from "@/lib/supabase/server";
 import type { BillingCycle, Payment, PaymentReceipt } from "@/types";
@@ -151,6 +152,23 @@ export async function settleBillAction(formData: FormData): Promise<
   }
 
   const paymentId = crypto.randomUUID();
+
+  // OCR on the original upload for best read accuracy
+  const extraction = await runOcrExtraction(bytes, receiptFile.type, {
+    expectedAmount: Number(bill.amount),
+    // forceMismatch is mock-only; live OCR.space always reads the real receipt
+    forceMismatch: isLiveOcrEnabled() ? false : parsed.data.forceMismatch,
+  }).catch((error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : "Could not read the receipt";
+    return { error: message } as const;
+  });
+
+  if ("error" in extraction) {
+    return { success: false, error: extraction.error };
+  }
+
+  // Compress then upload proof to Supabase Storage (S3)
   const stored = await storeReceipt({
     userId,
     paymentId,
@@ -159,18 +177,10 @@ export async function settleBillAction(formData: FormData): Promise<
     bytes,
   });
 
-  const extraction = await runOcrExtraction(bytes, receiptFile.type, {
-    expectedAmount: Number(bill.amount),
-    expectedMerchant: merchantName ?? undefined,
-    expectedDate: bill.due_date,
-    forceMismatch: parsed.data.forceMismatch,
-  });
-
   const validation = validateOcrAgainstBill(extraction, {
     amount: Number(bill.amount),
-    dueDate: bill.due_date,
-    merchant: merchantName,
     currency: bill.currency,
+    providedReference: parsed.data.referenceNumber ?? null,
   });
 
   const paymentStatus: Payment["status"] = validation.overallMatch
@@ -181,7 +191,7 @@ export async function settleBillAction(formData: FormData): Promise<
   const paidAt = validation.overallMatch ? now : null;
 
   const reference =
-    parsed.data.referenceNumber || extraction.referenceNumber || null;
+    extraction.referenceNumber || parsed.data.referenceNumber || null;
 
   const payment: DemoPaymentRecord = {
     id: paymentId,
@@ -191,7 +201,7 @@ export async function settleBillAction(formData: FormData): Promise<
     currency: bill.currency,
     status: paymentStatus,
     reference_number: reference,
-    merchant: extraction.merchant,
+    merchant: merchantName,
     paid_at: paidAt,
     reviewed_by: null,
     reviewed_at: validation.overallMatch ? now : null,
@@ -214,8 +224,8 @@ export async function settleBillAction(formData: FormData): Promise<
       ocr_raw: extraction.raw,
       extracted_amount: extraction.amount,
       extracted_reference: extraction.referenceNumber,
-      extracted_date: extraction.date,
-      extracted_merchant: extraction.merchant,
+      extracted_date: null,
+      extracted_merchant: null,
       confidence: extraction.confidence,
       amount_match: validation.amountMatch,
       created_at: now,

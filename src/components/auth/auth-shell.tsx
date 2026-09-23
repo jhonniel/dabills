@@ -17,7 +17,7 @@ export function AuthShell({
     <main
       id="main-content"
       tabIndex={-1}
-      className="relative min-h-dvh outline-none lg:grid lg:grid-cols-2"
+      className="relative min-h-dvh overflow-x-clip outline-none lg:grid lg:grid-cols-2"
     >
       <aside className="relative hidden overflow-hidden bg-[#070b12] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
         <div className="pointer-events-none absolute inset-0">
@@ -73,20 +73,20 @@ export function AuthShell({
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.1),transparent_55%)]" />
         </div>
 
-        <div className="relative z-10 flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8 lg:px-12">
+        <div className="safe-px relative z-10 flex items-center justify-between pt-[max(1rem,env(safe-area-inset-top))] lg:px-12">
           <Link
             href="/"
-            className="inline-flex items-center lg:invisible"
+            className="inline-flex min-w-0 items-center lg:invisible"
           >
             <AppWordmark size="md" priority />
           </Link>
           <ThemeToggle />
         </div>
 
-        <div className="relative z-10 flex flex-1 items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
+        <div className="safe-px relative z-10 flex flex-1 items-center justify-center py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] lg:px-12">
           <div className="w-full max-w-[400px]">
             <div className="mb-8">
-              <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 {title}
               </h1>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

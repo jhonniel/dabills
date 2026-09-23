@@ -13,7 +13,7 @@ export default async function AdminLogsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Activity logs
         </h1>
         <p className="mt-2 text-muted-foreground">
@@ -30,20 +30,20 @@ export default async function AdminLogsPage() {
           {items.map((log) => (
             <div
               key={log.id}
-              className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
+              className="min-w-0 overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium">{log.action}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words font-medium">{log.action}</p>
+                  <p className="mt-1 break-all text-xs text-muted-foreground">
                     Actor {log.actor_id ?? "system"}
                     {log.entity_type ? ` · ${log.entity_type}` : ""}
                     {log.entity_id ? ` · ${log.entity_id}` : ""}
                   </p>
                   {log.metadata && (
-                    <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+                    <pre className="mt-2 max-w-full overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] text-muted-foreground">
                       {JSON.stringify(log.metadata)}
-                    </p>
+                    </pre>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">

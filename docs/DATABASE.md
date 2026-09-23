@@ -32,8 +32,9 @@ Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local
 
 1. Admin configures pay-to methods at `/admin/payment-setup` (optional QR image per method).
 2. User settles a bill, sees those methods (and QR if uploaded), uploads a receipt.
-3. OCR match requires **amount and date**. Match → payment `approved`, bill `paid`.
-4. Mismatch → `pending_verification` for `/admin/payments` review.
+3. OCR reads **amount** and **transfer reference** only. Match → payment `approved`, bill `paid`.
+4. Receipt is **compressed** (JPEG, max 1600px) then stored in Supabase Storage (`receipts` bucket).
+5. Missing amount/reference → `pending_verification` for `/admin/payments` review.
 
 ## Shared subscription plans
 

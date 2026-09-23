@@ -167,7 +167,7 @@ export function AdminInvitesPanel({ invites }: { invites: InviteCode[] }) {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-mono text-sm font-medium tracking-wide text-zinc-100">
+                    <p className="break-all font-mono text-sm font-medium tracking-wide text-zinc-100">
                       {invite.code}
                     </p>
                     <Badge

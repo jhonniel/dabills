@@ -31,8 +31,8 @@ export function PaymentInstructions({
       <CardHeader>
         <CardTitle className="font-display text-lg">Send payment to</CardTitle>
         <CardDescription>
-          Pay the exact bill amount, then upload your receipt. Matching amount
-          and date are auto-approved.
+          Pay the exact bill amount, then upload your transfer receipt. Matching
+          amount and reference auto-confirm the payment.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -50,16 +50,18 @@ export function PaymentInstructions({
                   className="size-28 shrink-0 rounded-lg border border-white/10 bg-white object-contain p-1.5"
                 />
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-cyan-200">
                   {method.channel}
                 </p>
-                <p className="mt-1 text-sm text-white">{method.account_name}</p>
-                <p className="font-mono text-sm text-zinc-300">
+                <p className="mt-1 break-words text-sm text-white">
+                  {method.account_name}
+                </p>
+                <p className="break-all font-mono text-sm text-zinc-300">
                   {method.account_number}
                 </p>
                 {method.instructions && (
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 break-words text-xs text-muted-foreground">
                     {method.instructions}
                   </p>
                 )}

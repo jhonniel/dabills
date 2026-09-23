@@ -30,7 +30,7 @@ export default async function DashboardPage() {
           <p className="text-xs font-medium tracking-[0.14em] text-cyan-400/80 uppercase">
             Dashboard
           </p>
-          <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight text-white">
+          <h1 className="mt-1.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl text-white">
             Overview
           </h1>
           <p className="mt-2 max-w-lg text-sm leading-relaxed text-zinc-400">

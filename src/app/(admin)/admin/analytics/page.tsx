@@ -17,7 +17,7 @@ export default async function AdminAnalyticsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Analytics
         </h1>
         <p className="mt-2 text-muted-foreground">

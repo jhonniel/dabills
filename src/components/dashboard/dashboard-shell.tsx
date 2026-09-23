@@ -87,13 +87,13 @@ export function DashboardShell({
   );
 
   return (
-    <div className="min-h-dvh bg-[#070b12] pt-[env(safe-area-inset-top)] text-foreground">
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#070b12]/90 backdrop-blur-md lg:hidden">
-        <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/dashboard" className="inline-flex items-center">
+    <div className="min-h-dvh overflow-x-clip bg-[#070b12] pt-[env(safe-area-inset-top)] text-foreground">
+      <header className="sticky top-0 z-[60] border-b border-white/[0.06] bg-[#070b12]/95 backdrop-blur-md lg:hidden">
+        <div className="safe-px flex h-14 items-center justify-between">
+          <Link href="/dashboard" className="inline-flex min-w-0 items-center">
             <AppWordmark size="sm" />
           </Link>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <NotificationBell items={notifications} unreadCount={unreadCount} />
             <ThemeToggle />
             <Button
@@ -101,6 +101,7 @@ export function DashboardShell({
               size="icon"
               className="size-11"
               aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
             >
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -108,7 +109,7 @@ export function DashboardShell({
           </div>
         </div>
         {open && (
-          <div className="max-h-[70dvh] overflow-y-auto border-t border-white/[0.06] px-4 py-4">
+          <div className="safe-px max-h-[min(70dvh,calc(100dvh-3.5rem))] overflow-y-auto overscroll-contain border-t border-white/[0.06] py-4 pb-drawer-nav">
             <Nav onNavigate={() => setOpen(false)} />
             <Separator className="my-4 bg-white/[0.06]" />
             <form action={logoutAction}>
@@ -126,7 +127,7 @@ export function DashboardShell({
         )}
       </header>
 
-      <div className="mx-auto flex max-w-7xl gap-0 px-0 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:gap-0 lg:px-0 lg:pb-0">
+      <div className="mx-auto flex max-w-7xl gap-0 px-0 pb-nav lg:gap-0 lg:px-0 lg:pb-0">
         <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-white/[0.06] bg-[#0a0f18] px-4 py-5 lg:flex">
           <div className="mb-8 px-1">
             <Link href="/dashboard" className="inline-flex items-center">
@@ -172,14 +173,14 @@ export function DashboardShell({
           <main
             id="main-content"
             tabIndex={-1}
-            className="min-w-0 flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8"
+            className="safe-px min-w-0 flex-1 py-5 outline-none lg:py-8"
           >
             {children}
           </main>
         </div>
       </div>
 
-      <MobileBottomNav onMore={() => setOpen(true)} />
+      {!open && <MobileBottomNav onMore={() => setOpen(true)} />}
     </div>
   );
 }

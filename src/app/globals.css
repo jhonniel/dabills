@@ -191,9 +191,39 @@
     padding-right: max(1rem, env(safe-area-inset-right));
   }
 
+  @media (min-width: 640px) {
+    .safe-px {
+      padding-left: max(1.5rem, env(safe-area-inset-left));
+      padding-right: max(1.5rem, env(safe-area-inset-right));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .safe-px {
+      padding-left: max(2rem, env(safe-area-inset-left));
+      padding-right: max(2rem, env(safe-area-inset-right));
+    }
+  }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Clear fixed mobile bottom nav (h-14 + safe area) */
+  .pb-nav {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .pb-drawer-nav {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Avoid accidental horizontal scroll on small screens */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 @keyframes hero-float {

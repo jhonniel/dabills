@@ -73,8 +73,8 @@ export function AdminPaymentSetupPanel({
             Add payment destination
           </CardTitle>
           <CardDescription>
-            Users see these details when settling a bill. OCR then checks amount
-            and date on the receipt.
+            Users see these details when settling a bill. OCR reads the receipt
+            for amount and transfer reference to auto-confirm payment.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -199,7 +199,7 @@ export function AdminPaymentSetupPanel({
                   src={method.qr_image_url}
                   alt={`${method.channel} QR`}
                 />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{method.channel}</p>
                     <Badge
@@ -213,11 +213,11 @@ export function AdminPaymentSetupPanel({
                       {method.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 break-all text-sm text-muted-foreground">
                     {method.account_name} · {method.account_number}
                   </p>
                   {method.instructions && (
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-2 break-words text-xs text-muted-foreground">
                       {method.instructions}
                     </p>
                   )}

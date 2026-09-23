@@ -1,3 +1,8 @@
+import {
+  activeOcrProviderLabel,
+  hasLiveOcrCredentials,
+  resolveOcrProviderName,
+} from "./config";
 import { GoogleVisionProvider } from "./google-vision";
 import { MockOcrProvider } from "./mock";
 import { OcrSpaceProvider } from "./ocr-space";
@@ -10,22 +15,15 @@ export type OcrExtractHints = {
   forceMismatch?: boolean;
 };
 
-function hasLiveOcrCredentials(name: OcrProviderName) {
-  if (name === "ocrspace") return Boolean(process.env.OCR_SPACE_API_KEY);
-  if (name === "google-vision") return Boolean(process.env.GOOGLE_VISION_API_KEY);
-  return false;
-}
-
 /**
  * Swappable OCR provider factory.
- * Set OCR_PROVIDER=ocrspace | google-vision
- * Falls back to mock provider when credentials are missing.
+ * Set OCR_PROVIDER=ocrspace | google-vision | mock
+ * Falls back to mock when credentials are missing/placeholder.
  */
 export function getOcrProvider(
-  name: OcrProviderName = (process.env.OCR_PROVIDER as OcrProviderName) ||
-    "ocrspace"
+  name: OcrProviderName | "mock" = resolveOcrProviderName()
 ): OcrProvider {
-  if (!hasLiveOcrCredentials(name)) {
+  if (!hasLiveOcrCredentials(name) || name === "mock") {
     return new MockOcrProvider();
   }
 
@@ -44,17 +42,23 @@ export async function runOcrExtraction(
   mimeType: string,
   hints?: OcrExtractHints
 ): Promise<OcrExtractionResult & { provider: string }> {
-  const providerName =
-    (process.env.OCR_PROVIDER as OcrProviderName) || "ocrspace";
-  const provider = getOcrProvider(providerName);
+  const requested = resolveOcrProviderName();
+  const provider = getOcrProvider(requested);
 
   if (provider instanceof MockOcrProvider) {
     const result = await provider.extract(image, mimeType, hints);
     return { ...result, provider: provider.name };
   }
 
-  const result = await provider.extract(image, mimeType);
-  return { ...result, provider: provider.name };
+  try {
+    const result = await provider.extract(image, mimeType);
+    return { ...result, provider: provider.name };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "OCR extraction failed";
+    throw new Error(`OCR.space failed: ${message}`);
+  }
 }
 
+export { activeOcrProviderLabel, isLiveOcrEnabled } from "./config";
 export type { OcrExtractionResult, OcrProvider, OcrProviderName } from "./types";

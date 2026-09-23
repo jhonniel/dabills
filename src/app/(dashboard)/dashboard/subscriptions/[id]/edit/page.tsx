@@ -31,7 +31,7 @@ export default async function EditSubscriptionPage({
         >
           ← Back to {item.name}
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Edit subscription
         </h1>
         <p className="mt-2 text-muted-foreground">

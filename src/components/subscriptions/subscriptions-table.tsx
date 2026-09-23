@@ -150,7 +150,7 @@ export function SubscriptionsTable({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] md:block">
+      <div className="hidden overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.02] md:block">
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">

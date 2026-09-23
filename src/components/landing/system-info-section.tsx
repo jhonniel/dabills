@@ -36,7 +36,7 @@ const POINTS: Array<{
 export function SystemInfoSection() {
   return (
     <section className="border-t border-white/10 bg-[#070b12] py-16 sm:py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="safe-px mx-auto max-w-7xl">
         <div className="max-w-lg">
           <p className="text-sm font-medium text-cyan-400">Platform</p>
           <h2 className="mt-3 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">

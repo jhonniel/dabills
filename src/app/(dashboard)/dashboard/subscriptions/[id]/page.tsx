@@ -47,7 +47,7 @@ export default async function SubscriptionDetailPage({
             ← Back to subscriptions
           </Link>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-3xl font-semibold tracking-tight">
+            <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
               {item.name}
             </h1>
             <StatusBadge status={item.status} />

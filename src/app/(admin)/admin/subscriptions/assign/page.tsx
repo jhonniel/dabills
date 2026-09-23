@@ -32,7 +32,7 @@ export default async function AdminAssignSubscriptionPage({
         >
           ← Back to plans
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Assign seat
         </h1>
         <p className="mt-2 text-muted-foreground">

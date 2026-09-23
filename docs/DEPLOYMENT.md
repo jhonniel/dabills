@@ -52,8 +52,8 @@ local `.env.local` — `.env.local` is never deployed.
 | `CRON_SECRET` | Yes (prod) | Strong random secret for cron routes |
 | `RESEND_API_KEY` | Optional | Without it, emails mock-log |
 | `RESEND_FROM_EMAIL` | Optional | Verified sender domain in Resend |
-| `OCR_PROVIDER` | Optional | `mock` (default locally), `ocrspace`, or `google-vision` |
-| `OCR_SPACE_API_KEY` | If ocrspace | OCR.space key |
+| `OCR_PROVIDER` | Optional | `ocrspace` (default), `google-vision`, or `mock` |
+| `OCR_SPACE_API_KEY` | For ocrspace | Free key from [ocr.space/ocrapi](https://ocr.space/ocrapi) |
 | `GOOGLE_VISION_API_KEY` | If google-vision | Vision API key |
 
 After saving env vars, **Redeploy** (Deployments → … → Redeploy).  

@@ -1,12 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 
-import { reviewPaymentAction } from "@/features/payments/actions";
 import type { OcrValidationResult } from "@/services/ocr/validate";
 import type { PaymentStatus } from "@/types";
 import { formatMoney } from "@/lib/billing/expenses";
@@ -25,7 +21,6 @@ export function OcrResultCard({
   extraction,
   validation,
   expected,
-  paymentId,
   status,
 }: {
   extraction: {
@@ -39,40 +34,25 @@ export function OcrResultCard({
   validation: OcrValidationResult;
   expected: {
     amount: number;
-    dueDate: string;
-    merchant: string | null;
+    dueDate?: string;
+    merchant?: string | null;
   };
   paymentId: string;
   status: PaymentStatus;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-
   const rows = [
     {
-      field: "Merchant" as const,
-      expected: expected.merchant ?? "—",
-      actual: extraction.merchant ?? "—",
-      match: validation.merchantMatch,
-    },
-    {
-      field: "Amount" as const,
+      field: "Amount",
       expected: formatMoney(expected.amount),
       actual:
         extraction.amount !== null ? formatMoney(extraction.amount) : "—",
       match: validation.amountMatch,
     },
     {
-      field: "Date" as const,
-      expected: expected.dueDate,
-      actual: extraction.date ?? "—",
-      match: validation.dateMatch,
-    },
-    {
-      field: "Reference" as const,
-      expected: "—",
+      field: "Reference",
+      expected: "On receipt",
       actual: extraction.referenceNumber ?? "—",
-      match: true,
+      match: validation.referenceMatch,
     },
   ];
 
@@ -81,7 +61,9 @@ export function OcrResultCard({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="font-display text-lg">OCR validation</CardTitle>
+            <CardTitle className="font-display text-lg">
+              Proof of payment check
+            </CardTitle>
             <CardDescription>
               Provider: {extraction.provider} · Confidence{" "}
               {Math.round(extraction.confidence * 100)}%
@@ -95,7 +77,7 @@ export function OcrResultCard({
                 : "border-amber-400/30 bg-amber-400/10 text-amber-200"
             )}
           >
-            {validation.overallMatch ? "Matched" : "Mismatches found"}
+            {validation.overallMatch ? "Auto-confirmed" : "Needs review"}
           </Badge>
         </div>
       </CardHeader>
@@ -105,7 +87,7 @@ export function OcrResultCard({
             <div className="grid grid-cols-4 gap-2 border-b border-white/10 bg-white/[0.03] px-4 py-2 text-xs text-muted-foreground">
               <span>Field</span>
               <span>Expected</span>
-              <span>Extracted</span>
+              <span>From receipt</span>
               <span>Status</span>
             </div>
             {rows.map((row) => (
@@ -118,9 +100,22 @@ export function OcrResultCard({
               >
                 <span className="font-medium">{row.field}</span>
                 <span className="text-muted-foreground">{row.expected}</span>
-                <span>{row.actual}</span>
-                <span className={row.match ? "text-teal-300" : "text-rose-300"}>
-                  {row.match ? "Match" : "Mismatch"}
+                <span className="break-all">{row.actual}</span>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1",
+                    row.match ? "text-teal-300" : "text-rose-300"
+                  )}
+                >
+                  {row.match ? (
+                    <>
+                      <Check className="size-3.5" /> Match
+                    </>
+                  ) : (
+                    <>
+                      <X className="size-3.5" /> Missing
+                    </>
+                  )}
                 </span>
               </div>
             ))}
@@ -138,13 +133,13 @@ export function OcrResultCard({
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{row.field}</span>
                   <span className={row.match ? "text-teal-300" : "text-rose-300"}>
-                    {row.match ? "Match" : "Mismatch"}
+                    {row.match ? "Match" : "Missing"}
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Expected: {row.expected}
                 </p>
-                <p className="mt-1 text-xs">Extracted: {row.actual}</p>
+                <p className="mt-1 break-all text-xs">From receipt: {row.actual}</p>
               </div>
             ))}
           </div>
@@ -155,65 +150,13 @@ export function OcrResultCard({
           <span className="capitalize text-foreground">
             {status.replaceAll("_", " ")}
           </span>
-          . Amount and date matches are auto-approved; mismatches need admin
-          review.
+          . Matching bill amount and a transfer reference auto-confirms the bill
+          as paid. The receipt is compressed before storage.
         </p>
 
-        <div className="flex flex-wrap gap-2">
-          {status === "pending_verification" && (
-            <>
-              <Button
-                disabled={pending}
-                className="rounded-xl bg-teal-500 text-black hover:bg-teal-400"
-                onClick={() => {
-                  startTransition(async () => {
-                    const response = await reviewPaymentAction({
-                      paymentId,
-                      decision: "approved",
-                    });
-                    if (!response.success) {
-                      toast.error(response.error);
-                      return;
-                    }
-                    toast.success("Payment approved");
-                    router.push("/dashboard/payments");
-                    router.refresh();
-                  });
-                }}
-              >
-                <Check className="size-4" />
-                Approve payment
-              </Button>
-              <Button
-                disabled={pending}
-                variant="outline"
-                className="rounded-xl border-rose-400/30 text-rose-300"
-                onClick={() => {
-                  startTransition(async () => {
-                    const response = await reviewPaymentAction({
-                      paymentId,
-                      decision: "rejected",
-                      rejectionReason: "OCR / receipt mismatch",
-                    });
-                    if (!response.success) {
-                      toast.error(response.error);
-                      return;
-                    }
-                    toast.success("Payment rejected");
-                    router.push("/dashboard/payments");
-                    router.refresh();
-                  });
-                }}
-              >
-                <X className="size-4" />
-                Reject
-              </Button>
-            </>
-          )}
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href="/dashboard/payments">View payment history</Link>
-          </Button>
-        </div>
+        <Button asChild variant="outline" className="rounded-xl">
+          <Link href="/dashboard/payments">View payment history</Link>
+        </Button>
       </CardContent>
     </Card>
   );

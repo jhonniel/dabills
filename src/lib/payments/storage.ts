@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -27,6 +28,44 @@ function qrExtension(mimeType: string, fileName: string) {
   if (fromMime) return fromMime;
   const match = fileName.toLowerCase().match(/\.([a-z0-9]+)$/);
   return match?.[1] ?? "png";
+}
+
+/**
+ * Compress a receipt before uploading to Supabase Storage.
+ * Max edge 1600px, JPEG ~75% — smaller files, still readable for audit.
+ */
+export async function compressReceiptImage(input: {
+  bytes: Buffer;
+  fileName: string;
+}): Promise<{ bytes: Buffer; mimeType: string; fileName: string }> {
+  try {
+    const compressed = await sharp(input.bytes)
+      .rotate()
+      .resize({
+        width: 1600,
+        height: 1600,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 75, mozjpeg: true })
+      .toBuffer();
+
+    const base = input.fileName.replace(/\.[^.]+$/, "") || "receipt";
+    const safeBase = base.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+    return {
+      bytes: compressed,
+      mimeType: "image/jpeg",
+      fileName: `${safeBase}.jpg`,
+    };
+  } catch (error) {
+    console.error("compressReceiptImage", error);
+    return {
+      bytes: input.bytes,
+      mimeType: "image/jpeg",
+      fileName: input.fileName.replace(/\.[^.]+$/, "") + ".jpg",
+    };
+  }
 }
 
 async function storePaymentQrLocally(input: {
@@ -86,9 +125,8 @@ export async function storePaymentQr(input: {
 }
 
 /**
- * Store a receipt image.
- * - Supabase Storage when configured
- * - Demo path metadata otherwise (bytes kept only for OCR in-request)
+ * Compress then store a receipt image in Supabase Storage (`receipts` bucket).
+ * Demo path metadata otherwise (bytes kept only for OCR in-request).
  */
 export async function storeReceipt(input: {
   userId: string;
@@ -97,17 +135,22 @@ export async function storeReceipt(input: {
   mimeType: string;
   bytes: Buffer;
 }): Promise<StoredReceipt> {
-  const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const compressed = await compressReceiptImage({
+    bytes: input.bytes,
+    fileName: input.fileName,
+  });
+
+  const safeName = compressed.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `${input.userId}/${input.paymentId}/${Date.now()}-${safeName}`;
 
   if (!isSupabaseConfigured()) {
     return {
       storagePath: `demo://${storagePath}`,
       publicUrl: null,
-      bytes: input.bytes,
-      fileName: input.fileName,
-      mimeType: input.mimeType,
-      fileSize: input.bytes.byteLength,
+      bytes: compressed.bytes,
+      fileName: compressed.fileName,
+      mimeType: compressed.mimeType,
+      fileSize: compressed.bytes.byteLength,
     };
   }
 
@@ -115,8 +158,8 @@ export async function storeReceipt(input: {
     const admin = createAdminClient();
     const { error } = await admin.storage
       .from("receipts")
-      .upload(storagePath, input.bytes, {
-        contentType: input.mimeType,
+      .upload(storagePath, compressed.bytes, {
+        contentType: compressed.mimeType,
         upsert: false,
       });
 
@@ -125,30 +168,30 @@ export async function storeReceipt(input: {
       return {
         storagePath: `demo://${storagePath}`,
         publicUrl: null,
-        bytes: input.bytes,
-        fileName: input.fileName,
-        mimeType: input.mimeType,
-        fileSize: input.bytes.byteLength,
+        bytes: compressed.bytes,
+        fileName: compressed.fileName,
+        mimeType: compressed.mimeType,
+        fileSize: compressed.bytes.byteLength,
       };
     }
 
     return {
       storagePath,
       publicUrl: null,
-      bytes: input.bytes,
-      fileName: input.fileName,
-      mimeType: input.mimeType,
-      fileSize: input.bytes.byteLength,
+      bytes: compressed.bytes,
+      fileName: compressed.fileName,
+      mimeType: compressed.mimeType,
+      fileSize: compressed.bytes.byteLength,
     };
   } catch (error) {
     console.error("storeReceipt", error);
     return {
       storagePath: `demo://${storagePath}`,
       publicUrl: null,
-      bytes: input.bytes,
-      fileName: input.fileName,
-      mimeType: input.mimeType,
-      fileSize: input.bytes.byteLength,
+      bytes: compressed.bytes,
+      fileName: compressed.fileName,
+      mimeType: compressed.mimeType,
+      fileSize: compressed.bytes.byteLength,
     };
   }
 }

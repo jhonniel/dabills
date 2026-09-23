@@ -15,7 +15,7 @@ export function HeroSection({ plans }: { plans: ShowcasePlan[] }) {
         <div className="absolute inset-0 hidden bg-gradient-to-r from-[#070b12] via-[#070b12]/90 to-[#070b12]/30 lg:block" />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl safe-px">
         <div className="max-w-xl">
           <h1 className="sr-only">DaBills</h1>
           <AppWordmark size="hero" priority className="drop-shadow-[0_8px_32px_rgba(0,0,0,0.45)]" />

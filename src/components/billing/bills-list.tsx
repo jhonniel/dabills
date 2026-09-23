@@ -76,7 +76,7 @@ export function BillsTable({ items }: { items: BillingCycleWithSubscription[] })
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02]">
+    <div className="overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.02]">
       <Table>
         <TableHeader>
           <TableRow className="border-white/10 hover:bg-transparent">

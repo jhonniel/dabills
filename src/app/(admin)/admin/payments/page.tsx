@@ -9,11 +9,12 @@ export default async function AdminPaymentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
           Payment approvals
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Matching amount and date auto-approve. Review mismatches here.
+          Matching amount and transfer reference auto-confirm. Review the rest
+          here.
         </p>
       </div>
 

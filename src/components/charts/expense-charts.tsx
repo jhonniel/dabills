@@ -28,12 +28,12 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0c121c]/80">
-      <div className="border-b border-white/[0.06] px-5 py-4">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0c121c]/80">
+      <div className="border-b border-white/[0.06] px-4 py-4 sm:px-5">
         <h3 className="font-display text-base font-semibold text-white">{title}</h3>
         <p className="mt-0.5 text-xs text-zinc-500">{description}</p>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="min-w-0 p-4 sm:p-5">{children}</div>
     </div>
   );
 }
