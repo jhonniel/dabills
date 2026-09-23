@@ -70,6 +70,8 @@ export interface Profile {
   id: string;
   email: string;
   full_name: string | null;
+  /** Admin-assigned alias shown on the user profile */
+  code_name: string | null;
   avatar_url: string | null;
   role: UserRole;
   account_status: AccountStatus;

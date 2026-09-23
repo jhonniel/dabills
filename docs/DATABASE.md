@@ -13,7 +13,7 @@ Apply SQL files in `supabase/migrations/` **in numeric order** against your Supa
 | `007_service_role_set_role.sql` | Allow service role to set `profiles.role` (for seeders) |
 | `008_admin_expenses.sql` | Admin platform expenses (one-time / recurring + next date) |
 | `009_payment_method_qr.sql` | `payment_methods.qr_image_url` + public `payment-qr` storage bucket |
-| `010_account_status.sql` | `profiles.account_status` (`pending` / `active` / `disabled`) for admin-provisioned activation |
+| `011_profile_code_name.sql` | `profiles.code_name` admin-linked alias + unique index |
 
 ## Seed accounts (local)
 

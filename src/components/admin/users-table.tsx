@@ -2,17 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, Link2, Mail } from "lucide-react";
+import { Copy, Link2, Mail, Search } from "lucide-react";
 
 import {
   adminCreateUserAction,
   adminSendActivationLinkAction,
   adminToggleUserStatusAction,
+  adminUpdateUserCodeNameAction,
   adminUpdateUserRoleAction,
 } from "@/features/admin/actions";
 import type { AdminUser } from "@/lib/admin/demo-store";
+import {
+  filterAdminUsers,
+  type UserSearchHasFilter,
+} from "@/lib/admin/user-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type CreateDelivery = "later" | "email" | "link";
 
@@ -118,6 +124,21 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
   const [fullName, setFullName] = useState("");
   const [delivery, setDelivery] = useState<CreateDelivery>("later");
   const [lastLink, setLastLink] = useState<string | null>(null);
+  const [likeQuery, setLikeQuery] = useState("");
+  const [hasFilters, setHasFilters] = useState<UserSearchHasFilter[]>([]);
+
+  const filtered = useMemo(
+    () => filterAdminUsers(users, { like: likeQuery, has: hasFilters }),
+    [users, likeQuery, hasFilters]
+  );
+
+  const toggleHas = (filter: UserSearchHasFilter) => {
+    setHasFilters((prev) =>
+      prev.includes(filter)
+        ? prev.filter((item) => item !== filter)
+        : [...prev, filter]
+    );
+  };
 
   const changeRole = (user: AdminUser) => {
     startTransition(async () => {
@@ -176,6 +197,21 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
     });
   };
 
+  const saveCodeName = (user: AdminUser, value: string) => {
+    startTransition(async () => {
+      const result = await adminUpdateUserCodeNameAction(
+        user.id,
+        value.trim() || null
+      );
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(value.trim() ? "Code name linked" : "Code name cleared");
+      router.refresh();
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card className="border-white/10 bg-white/[0.03]">
@@ -183,7 +219,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
           <CardTitle className="font-display text-lg">Create user account</CardTitle>
           <CardDescription>
             Create now, then email the activation link later — or copy a direct
-            link to share yourself.
+            link to share yourself. Link a code name on the profile after create.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -340,8 +376,50 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
         </CardContent>
       </Card>
 
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={likeQuery}
+            onChange={(e) => setLikeQuery(e.target.value)}
+            placeholder="Search like name, email, or code name…"
+            className="pl-9"
+            aria-label="Search users"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Has:</span>
+          {(
+            [
+              { id: "code_name" as const, label: "Code name" },
+              { id: "subscriptions" as const, label: "Subscriptions" },
+            ] as const
+          ).map((item) => {
+            const active = hasFilters.includes(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => toggleHas(item.id)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 text-xs transition-colors",
+                  active
+                    ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
+                    : "border-white/10 text-muted-foreground hover:border-white/20"
+                )}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+          <span className="ml-auto text-xs text-muted-foreground">
+            {filtered.length} of {users.length}
+          </span>
+        </div>
+      </div>
+
       <div className="space-y-3 md:hidden">
-        {users.map((user) => {
+        {filtered.map((user) => {
           const status = user.account_status ?? user.status ?? "active";
           return (
             <div
@@ -354,6 +432,11 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                   <p className="truncate text-xs text-muted-foreground">
                     {user.email}
                   </p>
+                  {user.code_name && (
+                    <p className="mt-1 font-mono text-xs text-cyan-300">
+                      {user.code_name}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline" className="capitalize">
@@ -365,6 +448,16 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                   >
                     {status}
                   </Badge>
+                </div>
+              </div>
+              <div className="mt-3">
+                <Label className="text-xs text-muted-foreground">Code name</Label>
+                <div className="mt-1.5 flex gap-2">
+                  <CodeNameField
+                    user={user}
+                    pending={pending}
+                    onSave={(value) => saveCodeName(user, value)}
+                  />
                 </div>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
@@ -388,6 +481,11 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
             </div>
           );
         })}
+        {filtered.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-muted-foreground">
+            No users match this search.
+          </p>
+        )}
       </div>
 
       <div className="hidden overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.02] md:block">
@@ -395,6 +493,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
               <TableHead>User</TableHead>
+              <TableHead>Code name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Subscriptions</TableHead>
@@ -402,13 +501,20 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => {
+            {filtered.map((user) => {
               const status = user.account_status ?? user.status ?? "active";
               return (
                 <TableRow key={user.id} className="border-white/10">
                   <TableCell>
                     <p className="font-medium">{user.full_name ?? "Unnamed"}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </TableCell>
+                  <TableCell>
+                    <CodeNameField
+                      user={user}
+                      pending={pending}
+                      onSave={(value) => saveCodeName(user, value)}
+                    />
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="capitalize">
@@ -451,9 +557,58 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                 </TableRow>
               );
             })}
+            {filtered.length === 0 && (
+              <TableRow className="border-white/10 hover:bg-transparent">
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
+                  No users match this search.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+}
+
+function CodeNameField({
+  user,
+  pending,
+  onSave,
+}: {
+  user: AdminUser;
+  pending: boolean;
+  onSave: (value: string) => void;
+}) {
+  const [value, setValue] = useState(user.code_name ?? "");
+
+  useEffect(() => {
+    setValue(user.code_name ?? "");
+  }, [user.id, user.code_name]);
+
+  const dirty = value.trim() !== (user.code_name ?? "").trim();
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="e.g. JORDAN"
+        className="h-8 max-w-[9.5rem] font-mono text-xs"
+        disabled={pending}
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 shrink-0 rounded-lg"
+        disabled={pending || !dirty}
+        onClick={() => onSave(value)}
+      >
+        Link
+      </Button>
     </div>
   );
 }

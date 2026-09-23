@@ -9,4 +9,4 @@
 - With Supabase: `npm run db:seed` → admin `admin@dabills.app` / `DaBillsAdmin1!`, user `jordan@example.com` / `DaBillsUser1!`
 - Copy `.env.example` → `.env.local` before wiring services
 - Health: `GET /api/health`
-- After schema changes, apply migrations 001–010 in order
+- After schema changes, apply migrations 001–011 in order

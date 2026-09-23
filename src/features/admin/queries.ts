@@ -168,13 +168,19 @@ export async function listAdminUsers() {
 
   try {
     const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: seats }] = await Promise.all([
+      admin.from("profiles").select("*").order("created_at", { ascending: false }),
+      admin.from("subscriptions").select("user_id").neq("status", "cancelled"),
+    ]);
 
     if (error || !data) {
       return { items: await readAdminUsers(), isDemo: true as const };
+    }
+
+    const seatCounts = new Map<string, number>();
+    for (const row of seats ?? []) {
+      const uid = (row as { user_id: string }).user_id;
+      seatCounts.set(uid, (seatCounts.get(uid) ?? 0) + 1);
     }
 
     return {
@@ -182,8 +188,9 @@ export async function listAdminUsers() {
         const account_status = profile.account_status ?? "active";
         return {
           ...profile,
+          code_name: profile.code_name ?? null,
           account_status,
-          subscriptions_count: 0,
+          subscriptions_count: seatCounts.get(profile.id) ?? 0,
           status: account_status,
           activation_token: null,
         };

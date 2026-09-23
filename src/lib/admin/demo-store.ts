@@ -9,7 +9,7 @@ import type {
   Profile,
 } from "@/types";
 
-const USERS_COOKIE = "dabills_demo_admin_users_v2";
+const USERS_COOKIE = "dabills_demo_admin_users_v3";
 const INVITES_COOKIE = "dabills_demo_admin_invites";
 const ACTIVITY_COOKIE = "dabills_demo_activity_logs";
 const CATEGORIES_COOKIE = "dabills_demo_admin_categories";
@@ -26,6 +26,7 @@ function withStatus(user: AdminUser): AdminUser {
     user.account_status ?? user.status ?? ("active" as AccountStatus);
   return {
     ...user,
+    code_name: user.code_name ?? null,
     account_status,
     status: account_status,
   };
@@ -38,6 +39,7 @@ function seedUsers(): AdminUser[] {
       id: "demo-admin",
       email: "admin@dabills.app",
       full_name: "DaBills Admin",
+      code_name: "ADMIN",
       avatar_url: null,
       role: "admin",
       account_status: "active",
@@ -55,6 +57,7 @@ function seedUsers(): AdminUser[] {
       id: "demo-user",
       email: "jordan@example.com",
       full_name: "Jordan Lee",
+      code_name: "JORDAN",
       avatar_url: null,
       role: "user",
       account_status: "active",
@@ -72,6 +75,7 @@ function seedUsers(): AdminUser[] {
       id: "demo-user-2",
       email: "sam@example.com",
       full_name: "Sam Rivera",
+      code_name: "SAMR",
       avatar_url: null,
       role: "user",
       account_status: "active",
@@ -89,6 +93,7 @@ function seedUsers(): AdminUser[] {
       id: "demo-user-3",
       email: "alex@example.com",
       full_name: "Alex Kim",
+      code_name: null,
       avatar_url: null,
       role: "user",
       account_status: "disabled",
@@ -234,6 +239,7 @@ export async function createDemoAdminUser(input: {
     id: crypto.randomUUID(),
     email,
     full_name: input.fullName.trim(),
+    code_name: null,
     avatar_url: null,
     role: "user",
     account_status: "pending",
@@ -250,6 +256,34 @@ export async function createDemoAdminUser(input: {
 
   await writeAdminUsers([created, ...users]);
   return created;
+}
+
+export async function setDemoUserCodeName(
+  userId: string,
+  codeName: string | null
+) {
+  const users = await readAdminUsers();
+  const normalized = codeName?.trim() ? codeName.trim().slice(0, 64) : null;
+  if (normalized) {
+    const clash = users.find(
+      (user) =>
+        user.id !== userId &&
+        user.code_name?.toLowerCase() === normalized.toLowerCase()
+    );
+    if (clash) {
+      throw new Error("That code name is already linked to another user");
+    }
+  }
+  const index = users.findIndex((user) => user.id === userId);
+  if (index < 0) return null;
+  const next = [...users];
+  next[index] = withStatus({
+    ...next[index],
+    code_name: normalized,
+    updated_at: new Date().toISOString(),
+  });
+  await writeAdminUsers(next);
+  return next[index];
 }
 
 export async function setDemoUserAccountStatus(

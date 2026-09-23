@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Search } from "lucide-react";
 
 import { adminAssignUserToPlanAction } from "@/features/admin/actions";
 import type { AdminUser } from "@/lib/admin/demo-store";
+import {
+  filterAdminUsers,
+  type UserSearchHasFilter,
+} from "@/lib/admin/user-search";
 import { formatMoney, getNextBillingDate } from "@/lib/billing/expenses";
 import type { SubscriptionPlanWithSeats } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -19,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -54,6 +60,8 @@ export function AdminAssignSubscriptionForm({
     [plans]
   );
   const [userId, setUserId] = useState(defaultUserId ?? "");
+  const [userLike, setUserLike] = useState("");
+  const [userHas, setUserHas] = useState<UserSearchHasFilter[]>([]);
   const [planId, setPlanId] = useState(
     defaultPlanId && activePlans.some((p) => p.id === defaultPlanId)
       ? defaultPlanId
@@ -68,10 +76,29 @@ export function AdminAssignSubscriptionForm({
     )
   );
 
+  const filteredUsers = useMemo(
+    () => filterAdminUsers(users, { like: userLike, has: userHas }),
+    [users, userLike, userHas]
+  );
+
+  useEffect(() => {
+    if (userId && !filteredUsers.some((user) => user.id === userId)) {
+      setUserId("");
+    }
+  }, [filteredUsers, userId]);
+
   const remaining = selected
     ? Math.max(0, selected.max_capacity - selected.seats_used)
     : 0;
   const isFull = Boolean(selected && remaining === 0);
+
+  const toggleHas = (filter: UserSearchHasFilter) => {
+    setUserHas((prev) =>
+      prev.includes(filter)
+        ? prev.filter((item) => item !== filter)
+        : [...prev, filter]
+    );
+  };
 
   const onPlanChange = (id: string) => {
     setPlanId(id);
@@ -173,18 +200,64 @@ export function AdminAssignSubscriptionForm({
 
       <div className="space-y-2">
         <Label>Assign to user</Label>
+        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={userLike}
+              onChange={(e) => setUserLike(e.target.value)}
+              placeholder="Search like name, email, or code name…"
+              className="pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Has:</span>
+            {(
+              [
+                { id: "code_name" as const, label: "Code name" },
+                { id: "subscriptions" as const, label: "Subscriptions" },
+              ] as const
+            ).map((item) => {
+              const active = userHas.includes(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggleHas(item.id)}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-xs transition-colors",
+                    active
+                      ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
+                      : "border-white/10 text-muted-foreground hover:border-white/20"
+                  )}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+            <span className="ml-auto text-xs text-muted-foreground">
+              {filteredUsers.length} users
+            </span>
+          </div>
+        </div>
         <Select value={userId || undefined} onValueChange={setUserId}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select user" />
           </SelectTrigger>
           <SelectContent>
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <SelectItem key={user.id} value={user.id}>
+                {user.code_name ? `${user.code_name} · ` : ""}
                 {user.full_name ?? "Unnamed"} · {user.email}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {filteredUsers.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            No users match like/has filters.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

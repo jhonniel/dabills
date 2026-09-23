@@ -10,6 +10,7 @@ import {
   readAdminInvites,
   readAdminUsers,
   setDemoUserAccountStatus,
+  setDemoUserCodeName,
   writeAdminCategories,
   writeAdminInvites,
   writeAdminUsers,
@@ -255,6 +256,81 @@ export async function adminUpdateUserRoleAction(
     entity_type: "profile",
     entity_id: userId,
     metadata: { role },
+    ip_address: null,
+    user_agent: "admin",
+  });
+
+  revalidateAdmin();
+  return { success: true };
+}
+
+export async function adminUpdateUserCodeNameAction(
+  userId: string,
+  codeName: string | null
+): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "admin:user-code-name",
+    limit: 40,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const session = await requireAdmin();
+  const normalized =
+    typeof codeName === "string" && codeName.trim()
+      ? codeName.trim().slice(0, 64)
+      : null;
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    try {
+      const updated = await setDemoUserCodeName(userId, normalized);
+      if (!updated) return { success: false, error: "User not found" };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Could not save code name",
+      };
+    }
+  } else {
+    const admin = createAdminClient();
+    if (normalized) {
+      const { data: clash } = await admin
+        .from("profiles")
+        .select("id")
+        .ilike("code_name", normalized)
+        .neq("id", userId)
+        .maybeSingle();
+      if (clash) {
+        return {
+          success: false,
+          error: "That code name is already linked to another user",
+        };
+      }
+    }
+
+    const { error } = await admin
+      .from("profiles")
+      .update({ code_name: normalized })
+      .eq("id", userId);
+    if (error) {
+      if (error.message.toLowerCase().includes("unique")) {
+        return {
+          success: false,
+          error: "That code name is already linked to another user",
+        };
+      }
+      return { success: false, error: error.message };
+    }
+  }
+
+  await appendActivityLog({
+    user_id: userId,
+    actor_id: session.userId,
+    action: "user.code_name_updated",
+    entity_type: "profile",
+    entity_id: userId,
+    metadata: { code_name: normalized },
     ip_address: null,
     user_agent: "admin",
   });
