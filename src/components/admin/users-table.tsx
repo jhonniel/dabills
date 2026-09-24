@@ -319,56 +319,65 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
               className="rounded-xl bg-cyan-400 font-semibold text-black hover:bg-cyan-300"
               onClick={() => {
                 startTransition(async () => {
-                  const result = await adminCreateUserAction({
-                    email: email.trim() || undefined,
-                    fullName,
-                    sendActivation: delivery === "email",
-                  });
-                  if (!result.success) {
-                    toast.error(result.error);
-                    return;
-                  }
-
-                  if (delivery === "link") {
-                    const linkResult = await adminSendActivationLinkAction({
-                      userId: result.data!.id,
-                      sendEmail: false,
+                  try {
+                    const result = await adminCreateUserAction({
                       email: email.trim() || undefined,
+                      fullName,
+                      sendActivation: delivery === "email",
                     });
-                    if (!linkResult.success) {
-                      toast.error(linkResult.error);
+                    if (!result.success) {
+                      toast.error(result.error);
                       return;
                     }
-                    const url = linkResult.data?.activationUrl ?? null;
-                    setLastLink(url);
-                    if (url) {
-                      try {
-                        await navigator.clipboard.writeText(url);
-                        toast.success("Account created — claim link copied");
-                      } catch {
-                        toast.success(
-                          "Account created — copy the claim link below"
-                        );
+
+                    if (delivery === "link") {
+                      const linkResult = await adminSendActivationLinkAction({
+                        userId: result.data!.id,
+                        sendEmail: false,
+                        email: email.trim() || undefined,
+                      });
+                      if (!linkResult.success) {
+                        toast.error(linkResult.error);
+                        return;
                       }
+                      const url = linkResult.data?.activationUrl ?? null;
+                      setLastLink(url);
+                      if (url) {
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          toast.success("Account created — claim link copied");
+                        } catch {
+                          toast.success(
+                            "Account created — copy the claim link below"
+                          );
+                        }
+                      }
+                    } else if (delivery === "email") {
+                      setLastLink(result.data?.activationUrl ?? null);
+                      toast.success(
+                        result.data?.emailed
+                          ? "Account created and claim link emailed"
+                          : "Account created — copy the claim link below (email not configured)"
+                      );
+                    } else {
+                      setLastLink(null);
+                      toast.success(
+                        "Account created as pending. Add email when you send a claim link."
+                      );
                     }
-                  } else if (delivery === "email") {
-                    setLastLink(result.data?.activationUrl ?? null);
-                    toast.success(
-                      result.data?.emailed
-                        ? "Account created and claim link emailed"
-                        : "Account created — copy the claim link below (email not configured)"
-                    );
-                  } else {
-                    setLastLink(null);
-                    toast.success(
-                      "Account created as pending. Add email when you send a claim link."
+
+                    setEmail("");
+                    setFullName("");
+                    setDelivery("later");
+                    router.refresh();
+                  } catch (error) {
+                    console.error("create account", error);
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "Unexpected error creating account"
                     );
                   }
-
-                  setEmail("");
-                  setFullName("");
-                  setDelivery("later");
-                  router.refresh();
                 });
               }}
             >

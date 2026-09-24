@@ -4,13 +4,13 @@ import { readDemoSubscriptions } from "@/lib/billing/demo-store";
 import type { BillingCycleWithSubscription } from "@/features/billing/queries";
 import { createClient } from "@/lib/supabase/server";
 
-async function fromDemo(id: string, isDemo: boolean) {
+async function fromDemo(id: string) {
   const [cycles, subscriptions] = await Promise.all([
     readDemoBillingCycles(),
     readDemoSubscriptions(),
   ]);
   const cycle = cycles.find((item) => item.id === id);
-  if (!cycle) return { item: null, isDemo };
+  if (!cycle) return { item: null, isDemo: true as const };
 
   const subscription = subscriptions.find((sub) => sub.id === cycle.subscription_id);
   return {
@@ -27,13 +27,13 @@ async function fromDemo(id: string, isDemo: boolean) {
           }
         : null,
     } satisfies BillingCycleWithSubscription,
-    isDemo,
+    isDemo: true as const,
   };
 }
 
 export async function getBillingCycle(id: string) {
   if (!isSupabaseConfigured()) {
-    return fromDemo(id, true);
+    return fromDemo(id);
   }
 
   const supabase = await createClient();
@@ -42,7 +42,7 @@ export async function getBillingCycle(id: string) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return fromDemo(id, true);
+    return { item: null, isDemo: false as const };
   }
 
   const { data, error } = await supabase
@@ -55,7 +55,7 @@ export async function getBillingCycle(id: string) {
     .maybeSingle();
 
   if (error || !data) {
-    return fromDemo(id, true);
+    return { item: null, isDemo: false as const };
   }
 
   const record = data as BillingCycleWithSubscription & {

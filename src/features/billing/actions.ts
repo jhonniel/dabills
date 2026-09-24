@@ -197,40 +197,33 @@ export async function getScheduledRemindersAction() {
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    const [cycles, subscriptions] = await Promise.all([
-      (await import("@/lib/billing/demo-bills")).readDemoBillingCycles(),
-      readDemoSubscriptions(),
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    const [{ data: cycles }, { data: subscriptions }] = await Promise.all([
+      admin.from("billing_cycles").select("*"),
+      admin
+        .from("subscriptions")
+        .select("id, user_id, reminder_days, status"),
     ]);
+
     return {
       success: true as const,
-      data: buildReminderSchedule({ cycles, subscriptions }),
+      data: buildReminderSchedule({
+        cycles: (cycles ?? []) as BillingCycle[],
+        subscriptions: (subscriptions ?? []) as Array<{
+          id: string;
+          user_id: string;
+          reminder_days: number[];
+          status: "active" | "paused" | "cancelled";
+        }>,
+      }),
+    };
+  } catch (error) {
+    console.error("getScheduledRemindersAction", error);
+    return {
+      success: false as const,
+      error: "Failed to build schedule",
     };
   }
-
-  const [{ data: cycles }, { data: subscriptions }] = await Promise.all([
-    supabase.from("billing_cycles").select("*").eq("user_id", user.id),
-    supabase
-      .from("subscriptions")
-      .select("id, user_id, reminder_days, status")
-      .eq("user_id", user.id),
-  ]);
-
-  return {
-    success: true as const,
-    data: buildReminderSchedule({
-      cycles: (cycles ?? []) as BillingCycle[],
-      subscriptions: (subscriptions ?? []) as Array<{
-        id: string;
-        user_id: string;
-        reminder_days: number[];
-        status: "active" | "paused" | "cancelled";
-      }>,
-    }),
-  };
 }

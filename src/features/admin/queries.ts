@@ -10,7 +10,7 @@ import { readDemoBillingCycles } from "@/lib/billing/demo-bills";
 import { readDemoEmailLogs } from "@/lib/notifications/demo-store";
 import { listAllPaymentsForAdmin } from "@/features/payments/queries";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { readDemoSubscriptionPlans } from "@/lib/subscriptions/plans-store";
 import { readDemoAdminExpenses } from "@/lib/expenses/expenses-store";
 import {
@@ -58,29 +58,41 @@ type SubWithCategory = Subscription & {
 };
 
 async function listLiveSubscriptions() {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("subscriptions")
-    .select("*, category:categories(id, slug, name, icon, color)")
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.warn("listLiveSubscriptions", error.message);
+  try {
+    const admin = tryCreateAdminClient();
+    if (!admin) return [] as SubWithCategory[];
+    const { data, error } = await admin
+      .from("subscriptions")
+      .select("*, category:categories(id, slug, name, icon, color)")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("listLiveSubscriptions", error.message);
+      return [] as SubWithCategory[];
+    }
+    return (data ?? []) as SubWithCategory[];
+  } catch (error) {
+    console.warn("listLiveSubscriptions", error);
     return [] as SubWithCategory[];
   }
-  return (data ?? []) as SubWithCategory[];
 }
 
 async function listLiveBillingCycles() {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("billing_cycles")
-    .select("id, status")
-    .order("due_date", { ascending: false });
-  if (error) {
-    console.warn("listLiveBillingCycles", error.message);
+  try {
+    const admin = tryCreateAdminClient();
+    if (!admin) return [] as { id: string; status: string }[];
+    const { data, error } = await admin
+      .from("billing_cycles")
+      .select("id, status")
+      .order("due_date", { ascending: false });
+    if (error) {
+      console.warn("listLiveBillingCycles", error.message);
+      return [] as { id: string; status: string }[];
+    }
+    return (data ?? []) as { id: string; status: string }[];
+  } catch (error) {
+    console.warn("listLiveBillingCycles", error);
     return [] as { id: string; status: string }[];
   }
-  return (data ?? []) as { id: string; status: string }[];
 }
 
 export async function listSubscriptionPlans(): Promise<{
@@ -215,7 +227,11 @@ export async function listAdminUsers() {
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = tryCreateAdminClient();
+    if (!admin) {
+      console.warn("listAdminUsers: missing service role key");
+      return { items: [], isDemo: false as const };
+    }
     const [{ data, error }, { data: seats }] = await Promise.all([
       admin.from("profiles").select("*").order("created_at", { ascending: false }),
       admin.from("subscriptions").select("user_id").neq("status", "cancelled"),

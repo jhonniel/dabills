@@ -34,11 +34,7 @@ export async function listActivePaymentMethods() {
 
   if (error) {
     console.error("listActivePaymentMethods", error.message);
-    const items = await readDemoPaymentMethods();
-    return {
-      items: items.filter((item) => item.is_active).map(normalizePaymentMethod),
-      isDemo: true as const,
-    };
+    return { items: [] as PaymentMethod[], isDemo: false as const };
   }
 
   return {
@@ -72,12 +68,6 @@ export async function listAllPaymentMethods() {
     };
   } catch (error) {
     console.error("listAllPaymentMethods", error);
-    const items = await readDemoPaymentMethods();
-    return {
-      items: [...items]
-        .map(normalizePaymentMethod)
-        .sort((a, b) => a.sort_order - b.sort_order),
-      isDemo: true as const,
-    };
+    return { items: [] as PaymentMethod[], isDemo: false as const };
   }
 }

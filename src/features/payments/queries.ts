@@ -74,8 +74,7 @@ export async function listPayments(filters: PaymentFilters = {}) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const items = applyFilters(await readDemoPayments(), parsed);
-    return { items, isDemo: true as const };
+    return { items: [] as PaymentListItem[], isDemo: false as const };
   }
 
   const { data, error } = await supabase

@@ -79,6 +79,17 @@ export interface Profile {
   timezone: string;
   notification_email: boolean;
   notification_in_app: boolean;
+  /** Detailed reminder/payment notification toggles */
+  notification_preferences?: {
+    emailEnabled: boolean;
+    inAppEnabled: boolean;
+    reminder5d: boolean;
+    reminder3d: boolean;
+    reminder1d: boolean;
+    dueToday: boolean;
+    overdue: boolean;
+    paymentEvents: boolean;
+  } | null;
   created_at: string;
   updated_at: string;
 }

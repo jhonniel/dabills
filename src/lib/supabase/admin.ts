@@ -17,3 +17,12 @@ export function createAdminClient() {
     },
   });
 }
+
+/** Same as createAdminClient, but returns null instead of throwing. */
+export function tryCreateAdminClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    return null;
+  }
+}

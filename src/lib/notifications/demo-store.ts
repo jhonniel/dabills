@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { EmailLog, Notification } from "@/types";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -12,6 +13,15 @@ const NOTIFICATIONS_COOKIE = "dabills_demo_notifications";
 const PREFS_COOKIE = "dabills_demo_notification_prefs";
 const EMAIL_LOGS_COOKIE = "dabills_demo_email_logs";
 const SENT_REMINDERS_COOKIE = "dabills_demo_sent_reminders";
+
+function mergePreferences(
+  raw: Partial<NotificationPreferences> | null | undefined
+): NotificationPreferences {
+  return {
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+    ...(raw ?? {}),
+  };
+}
 
 export async function readDemoNotifications(): Promise<Notification[]> {
   const store = await cookies();
@@ -80,6 +90,37 @@ export async function createDemoNotification(
     is_read?: boolean;
   }
 ) {
+  if (isSupabaseConfigured() && input.user_id !== "demo-user") {
+    try {
+      const admin = tryCreateAdminClient();
+      if (admin) {
+        const { data, error } = await admin
+          .from("notifications")
+          .insert({
+            user_id: input.user_id,
+            type: input.type,
+            title: input.title,
+            body: input.body,
+            href: input.href ?? null,
+            is_read: input.is_read ?? false,
+            metadata: input.metadata ?? null,
+          })
+          .select()
+          .single();
+        if (!error && data) return data as Notification;
+        console.error("createDemoNotification", error?.message);
+      }
+    } catch (error) {
+      console.error("createDemoNotification", error);
+    }
+    return {
+      ...input,
+      id: crypto.randomUUID(),
+      is_read: input.is_read ?? false,
+      created_at: new Date().toISOString(),
+    };
+  }
+
   const items = await readDemoNotifications();
   const created: Notification = {
     ...input,
@@ -92,6 +133,25 @@ export async function createDemoNotification(
 }
 
 export async function markDemoNotificationRead(id: string) {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      }
+    } catch (error) {
+      console.error("markDemoNotificationRead", error);
+    }
+    return;
+  }
+
   const items = await readDemoNotifications();
   const next = items.map((item) =>
     item.id === id ? { ...item, is_read: true } : item
@@ -100,33 +160,153 @@ export async function markDemoNotificationRead(id: string) {
 }
 
 export async function markAllDemoNotificationsRead() {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("user_id", user.id)
+          .eq("is_read", false);
+      }
+    } catch (error) {
+      console.error("markAllDemoNotificationsRead", error);
+    }
+    return;
+  }
+
   const items = await readDemoNotifications();
   await writeDemoNotifications(items.map((item) => ({ ...item, is_read: true })));
 }
 
-export async function readDemoNotificationPreferences(): Promise<NotificationPreferences> {
+export async function readDemoNotificationPreferences(
+  userId?: string | null
+): Promise<NotificationPreferences> {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const id = userId ?? user?.id;
+      if (id) {
+        const client =
+          !user || (userId && userId !== user.id)
+            ? tryCreateAdminClient() ?? supabase
+            : supabase;
+
+        // Prefer full prefs column; fall back when migration 013 is not applied yet
+        const full = await client
+          .from("profiles")
+          .select(
+            "notification_email, notification_in_app, notification_preferences"
+          )
+          .eq("id", id)
+          .maybeSingle();
+
+        let data = full.data as {
+          notification_email?: boolean;
+          notification_in_app?: boolean;
+          notification_preferences?: Partial<NotificationPreferences> | null;
+        } | null;
+
+        if (
+          full.error &&
+          /notification_preferences|schema cache/i.test(full.error.message)
+        ) {
+          const basic = await client
+            .from("profiles")
+            .select("notification_email, notification_in_app")
+            .eq("id", id)
+            .maybeSingle();
+          data = basic.data as typeof data;
+        }
+
+        if (data) {
+          const prefs = mergePreferences(data.notification_preferences);
+          return {
+            ...prefs,
+            emailEnabled:
+              data.notification_email !== undefined
+                ? Boolean(data.notification_email)
+                : prefs.emailEnabled,
+            inAppEnabled:
+              data.notification_in_app !== undefined
+                ? Boolean(data.notification_in_app)
+                : prefs.inAppEnabled,
+          };
+        }
+      }
+    } catch (error) {
+      console.error("readDemoNotificationPreferences", error);
+    }
+    return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+  }
+
   const store = await cookies();
   const raw = store.get(PREFS_COOKIE)?.value;
-  if (!raw) return DEFAULT_NOTIFICATION_PREFERENCES;
+  if (!raw) return { ...DEFAULT_NOTIFICATION_PREFERENCES };
   try {
-    return {
-      ...DEFAULT_NOTIFICATION_PREFERENCES,
-      ...(JSON.parse(decodeURIComponent(raw)) as NotificationPreferences),
-    };
+    return mergePreferences(
+      JSON.parse(decodeURIComponent(raw)) as Partial<NotificationPreferences>
+    );
   } catch {
-    return DEFAULT_NOTIFICATION_PREFERENCES;
+    return { ...DEFAULT_NOTIFICATION_PREFERENCES };
   }
 }
 
 export async function writeDemoNotificationPreferences(
-  prefs: NotificationPreferences
+  preferences: NotificationPreferences,
+  userId?: string | null
 ) {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const id = userId ?? user?.id;
+      if (!id) return;
+
+      const client =
+        !user || (userId && userId !== user.id)
+          ? tryCreateAdminClient() ?? supabase
+          : supabase;
+
+      const full = {
+        notification_email: preferences.emailEnabled,
+        notification_in_app: preferences.inAppEnabled,
+        notification_preferences: preferences,
+      };
+      const { error } = await client.from("profiles").update(full).eq("id", id);
+      if (error && /notification_preferences|schema cache/i.test(error.message)) {
+        // Migration 013 not applied yet — keep email/in-app flags in DB
+        await client
+          .from("profiles")
+          .update({
+            notification_email: preferences.emailEnabled,
+            notification_in_app: preferences.inAppEnabled,
+          })
+          .eq("id", id);
+      } else if (error) {
+        console.error("writeDemoNotificationPreferences", error.message);
+      }
+    } catch (error) {
+      console.error("writeDemoNotificationPreferences", error);
+    }
+    return;
+  }
+
   const store = await cookies();
-  store.set(PREFS_COOKIE, encodeURIComponent(JSON.stringify(prefs)), {
+  store.set(PREFS_COOKIE, encodeURIComponent(JSON.stringify(preferences)), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 365,
+    maxAge: 60 * 60 * 24 * 30,
   });
 }
 
@@ -145,23 +325,25 @@ export async function readDemoEmailLogs(): Promise<EmailLog[]> {
 export async function appendDemoEmailLog(log: Omit<EmailLog, "id" | "created_at">) {
   if (isSupabaseConfigured()) {
     try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from("email_logs")
-        .insert({
-          user_id: log.user_id,
-          to_email: log.to_email,
-          subject: log.subject,
-          template: log.template,
-          status: log.status,
-          provider_id: log.provider_id,
-          error: log.error,
-          metadata: log.metadata,
-        })
-        .select()
-        .single();
-      if (!error && data) return data as EmailLog;
-      console.error("appendDemoEmailLog", error?.message);
+      const admin = tryCreateAdminClient();
+      if (admin) {
+        const { data, error } = await admin
+          .from("email_logs")
+          .insert({
+            user_id: log.user_id,
+            to_email: log.to_email,
+            subject: log.subject,
+            template: log.template,
+            status: log.status,
+            provider_id: log.provider_id,
+            error: log.error,
+            metadata: log.metadata,
+          })
+          .select()
+          .single();
+        if (!error && data) return data as EmailLog;
+        console.error("appendDemoEmailLog", error?.message);
+      }
     } catch (error) {
       console.error("appendDemoEmailLog", error);
     }
@@ -192,7 +374,41 @@ export async function appendDemoEmailLog(log: Omit<EmailLog, "id" | "created_at"
   return entry;
 }
 
-export async function readSentReminderIds(): Promise<string[]> {
+export async function readSentReminderIds(userId?: string | null): Promise<string[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const id = userId ?? user?.id;
+      if (!id) return [];
+
+      const client =
+        userId && user && userId !== user.id
+          ? tryCreateAdminClient() ?? supabase
+          : !user
+            ? tryCreateAdminClient() ?? supabase
+            : supabase;
+      const { data } = await client
+        .from("notifications")
+        .select("metadata")
+        .eq("user_id", id)
+        .not("metadata", "is", null)
+        .limit(500);
+
+      return ((data ?? []) as Array<{ metadata: Record<string, unknown> | null }>)
+        .map((row) => {
+          const reminderId = row.metadata?.reminder_id;
+          return typeof reminderId === "string" ? reminderId : null;
+        })
+        .filter((value): value is string => Boolean(value));
+    } catch (error) {
+      console.error("readSentReminderIds", error);
+      return [];
+    }
+  }
+
   const store = await cookies();
   const raw = store.get(SENT_REMINDERS_COOKIE)?.value;
   if (!raw) return [];
@@ -205,6 +421,11 @@ export async function readSentReminderIds(): Promise<string[]> {
 }
 
 export async function markReminderSent(id: string) {
+  if (isSupabaseConfigured()) {
+    // Live mode records reminder_id on the notification row via dispatchNotification.
+    return;
+  }
+
   const existing = await readSentReminderIds();
   if (existing.includes(id)) return;
   const store = await cookies();

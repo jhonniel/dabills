@@ -115,28 +115,22 @@ export async function settleBillAction(formData: FormData): Promise<
     } = await supabase.auth.getUser();
 
     if (!user) {
-      const [cycles, subscriptions] = await Promise.all([
-        readDemoBillingCycles(),
-        readDemoSubscriptions(),
-      ]);
-      bill = cycles.find((cycle) => cycle.id === parsed.data.billingCycleId) ?? null;
-      const subscription = subscriptions.find((sub) => sub.id === bill?.subscription_id);
-      merchantName = subscription?.name ?? null;
-    } else {
-      userId = user.id;
-      const { data } = await supabase
-        .from("billing_cycles")
-        .select("*, subscription:subscriptions(name)")
-        .eq("id", parsed.data.billingCycleId)
-        .eq("user_id", user.id)
-        .maybeSingle();
+      return { success: false, error: "Sign in required" };
+    }
 
-      if (data) {
-        bill = data as BillingCycle;
-        const sub = (data as { subscription?: { name?: string } | Array<{ name?: string }> })
-          .subscription;
-        merchantName = Array.isArray(sub) ? sub[0]?.name ?? null : sub?.name ?? null;
-      }
+    userId = user.id;
+    const { data } = await supabase
+      .from("billing_cycles")
+      .select("*, subscription:subscriptions(name)")
+      .eq("id", parsed.data.billingCycleId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (data) {
+      bill = data as BillingCycle;
+      const sub = (data as { subscription?: { name?: string } | Array<{ name?: string }> })
+        .subscription;
+      merchantName = Array.isArray(sub) ? sub[0]?.name ?? null : sub?.name ?? null;
     }
   }
 
@@ -283,9 +277,6 @@ export async function settleBillAction(formData: FormData): Promise<
       })
       .eq("id", bill.id)
       .eq("user_id", userId);
-
-    // Keep a demo copy for history UI richness in mixed setups
-    await createDemoPayment(payment);
   }
 
   revalidatePaymentPaths(bill.id);
@@ -402,20 +393,7 @@ export async function reviewPaymentAction(input: {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const updated = await updateDemoPayment(input.paymentId, {
-      status: input.decision,
-      reviewed_at: now,
-      rejection_reason:
-        input.decision === "rejected" ? rejectionReason ?? "Rejected" : null,
-      paid_at: input.decision === "approved" ? now : null,
-    });
-    if (!updated) return { success: false, error: "Payment not found" };
-    if (input.decision === "approved") {
-      await updateDemoBillStatus(updated.billing_cycle_id, "paid");
-      await maybeNotifyPaymentDecision(updated);
-    }
-    revalidatePaymentPaths(updated.billing_cycle_id);
-    return { success: true };
+    return { success: false, error: "Sign in required" };
   }
 
   const { data: payment, error } = await supabase
@@ -456,12 +434,6 @@ export async function reviewPaymentAction(input: {
       status: "approved",
     });
   }
-
-  await updateDemoPayment(input.paymentId, {
-    status: input.decision,
-    reviewed_at: now,
-    paid_at: input.decision === "approved" ? now : null,
-  });
 
   revalidatePaymentPaths((payment as Payment).billing_cycle_id);
   return { success: true };

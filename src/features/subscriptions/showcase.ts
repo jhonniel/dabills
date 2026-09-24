@@ -70,26 +70,16 @@ export async function listPublicShowcasePlans(): Promise<ShowcasePlan[]> {
       .order("name", { ascending: true });
 
     if (error || !data) {
-      const plans = await readDemoSubscriptionPlans();
-      const categories = await categoryMapFromDemo();
-      return plans
-        .filter((p) => p.status === "active")
-        .map((p) =>
-          toShowcase(p, p.category_id ? categories.get(p.category_id) ?? null : null)
-        );
+      console.warn("listPublicShowcasePlans", error?.message);
+      return [];
     }
 
     const categories = await categoryMapFromDb();
     return (data as SubscriptionPlan[]).map((p) =>
       toShowcase(p, p.category_id ? categories.get(p.category_id) ?? null : null)
     );
-  } catch {
-    const plans = await readDemoSubscriptionPlans();
-    const categories = await categoryMapFromDemo();
-    return plans
-      .filter((p) => p.status === "active")
-      .map((p) =>
-        toShowcase(p, p.category_id ? categories.get(p.category_id) ?? null : null)
-      );
+  } catch (error) {
+    console.warn("listPublicShowcasePlans", error);
+    return [];
   }
 }

@@ -78,8 +78,7 @@ export async function listSubscriptions(filters: SubscriptionFilters = {}) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const items = applyFilters(await readDemoSubscriptions(), parsed);
-    return { items, isDemo: true as const };
+    return { items: [] as SubscriptionWithCategory[], isDemo: false as const };
   }
 
   let query = supabase
@@ -156,11 +155,7 @@ export async function getSubscription(id: string) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const items = await readDemoSubscriptions();
-    return {
-      item: items.find((item) => item.id === id) ?? null,
-      isDemo: true as const,
-    };
+    return { item: null, isDemo: false as const };
   }
 
   const { data, error } = await supabase

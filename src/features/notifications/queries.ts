@@ -4,8 +4,9 @@ import {
   readDemoNotificationPreferences,
   readDemoNotifications,
 } from "@/lib/notifications/demo-store";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { Notification } from "@/types";
+import type { EmailLog, Notification } from "@/types";
 import type { NotificationPreferences } from "@/validators/notification";
 
 export async function listNotifications() {
@@ -24,11 +25,10 @@ export async function listNotifications() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const items = await readDemoNotifications();
     return {
-      items,
-      unreadCount: items.filter((item) => !item.is_read).length,
-      isDemo: true as const,
+      items: [] as Notification[],
+      unreadCount: 0,
+      isDemo: false as const,
     };
   }
 
@@ -40,11 +40,11 @@ export async function listNotifications() {
     .limit(50);
 
   if (error) {
-    const items = await readDemoNotifications();
+    console.error("listNotifications", error.message);
     return {
-      items,
-      unreadCount: items.filter((item) => !item.is_read).length,
-      isDemo: true as const,
+      items: [] as Notification[],
+      unreadCount: 0,
+      isDemo: false as const,
     };
   }
 
@@ -60,42 +60,36 @@ export async function getNotificationPreferences(): Promise<{
   preferences: NotificationPreferences;
   isDemo: boolean;
 }> {
-  // Phase 5 stores detailed prefs in demo cookie; profile flags cover email/in-app in DB.
-  const preferences = await readDemoNotificationPreferences();
-
   if (!isSupabaseConfigured()) {
-    return { preferences, isDemo: true };
+    return {
+      preferences: await readDemoNotificationPreferences(),
+      isDemo: true,
+    };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { preferences, isDemo: true };
-
-  const { data } = await supabase
-    .from("profiles")
-    .select("notification_email, notification_in_app")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!data) return { preferences, isDemo: false };
-
-  return {
-    preferences: {
-      ...preferences,
-      emailEnabled: Boolean(
-        (data as { notification_email?: boolean }).notification_email
-      ),
-      inAppEnabled: Boolean(
-        (data as { notification_in_app?: boolean }).notification_in_app
-      ),
-    },
-    isDemo: false,
-  };
+  const preferences = await readDemoNotificationPreferences();
+  return { preferences, isDemo: false };
 }
 
 export async function listEmailLogs() {
-  return readDemoEmailLogs();
+  if (!isSupabaseConfigured()) {
+    return readDemoEmailLogs();
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("email_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) {
+      console.error("listEmailLogs", error.message);
+      return [] as EmailLog[];
+    }
+    return (data ?? []) as EmailLog[];
+  } catch (error) {
+    console.error("listEmailLogs", error);
+    return [] as EmailLog[];
+  }
 }

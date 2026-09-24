@@ -13,8 +13,10 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    console.error("[DaBills error]", error.message, error.digest, error);
   }, [error]);
+
+  const isDev = process.env.NODE_ENV === "development";
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">
@@ -27,6 +29,11 @@ export default function Error({
       <p className="mt-3 max-w-md text-sm text-muted-foreground">
         Try again. If it keeps happening, refresh the page or return home.
       </p>
+      {isDev && error.message ? (
+        <pre className="mt-4 max-w-lg whitespace-pre-wrap rounded-xl border border-rose-400/30 bg-rose-950/40 px-4 py-3 text-left font-mono text-xs text-rose-100">
+          {error.message}
+        </pre>
+      ) : null}
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Button onClick={reset}>Try again</Button>
         <Button variant="outline" asChild>

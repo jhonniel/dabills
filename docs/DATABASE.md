@@ -13,8 +13,10 @@ Apply SQL files in `supabase/migrations/` **in numeric order** against your Supa
 | `007_service_role_set_role.sql` | Allow service role to set `profiles.role` (for seeders) |
 | `008_admin_expenses.sql` | Admin platform expenses (one-time / recurring + next date) |
 | `009_payment_method_qr.sql` | `payment_methods.qr_image_url` + public `payment-qr` storage bucket |
+| `010_account_status.sql` | `profiles.account_status` + claim/activation flow support |
 | `011_profile_code_name.sql` | `profiles.code_name` admin-linked alias + unique index |
 | `012_optional_profile_email.sql` | Allow `profiles.email` null until a claim link is sent |
+| `013_notification_preferences.sql` | `profiles.notification_preferences` jsonb (shared across devices) |
 
 ## Seed accounts (local)
 
@@ -31,7 +33,9 @@ Creates / resets:
 
 Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
 
-**Important:** Apply migrations **001 → 012 in order**. Skipping `010` (account_status) while applying `011` (code_name) breaks admin user create/claim updates. If create account shows an unexpected error page, run `010` and `012` in the Supabase SQL editor, then retry.
+**Important:** Apply migrations **001 → 013 in order**. Skipping `010` (account_status) while applying `011` (code_name) breaks admin user create/claim updates. If create account shows an unexpected error page, run `010` and `012` in the Supabase SQL editor, then retry. Apply `013` so notification preferences sync across admins/devices (not browser cookies).
+
+When Supabase env vars are set, **all app data is read/written from the database**. Cookie-backed demo stores are only used when Supabase is not configured (local preview without credentials).
 
 1. Admin configures pay-to methods at `/admin/payment-setup` (optional QR image per method).
 2. Admin can create a user with **name only** (email optional). Email is required when sending/copying a **claim link**.

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { DEMO_CATEGORIES } from "@/lib/billing/demo-data";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import type {
   AccountStatus,
   ActivityLog,
@@ -367,7 +367,14 @@ export async function appendActivityLog(
 ) {
   if (isSupabaseConfigured()) {
     try {
-      const admin = createAdminClient();
+      const admin = tryCreateAdminClient();
+      if (!admin) {
+        return {
+          ...entry,
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+        };
+      }
       const { data, error } = await admin
         .from("activity_logs")
         .insert({

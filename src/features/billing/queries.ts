@@ -99,15 +99,7 @@ export async function listBillingCycles(filters: BillingFilters = {}) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const [cycles, subscriptions] = await Promise.all([
-      readDemoBillingCycles(),
-      readDemoSubscriptions(),
-    ]);
-    const items = applyFilters(
-      await attachSubscriptions(cycles, subscriptions),
-      parsed
-    );
-    return { items, isDemo: true as const };
+    return { items: [] as BillingCycleWithSubscription[], isDemo: false as const };
   }
 
   let query = supabase
@@ -195,7 +187,12 @@ export async function getReminderSchedulePreview() {
           const {
             data: { user },
           } = await supabase.auth.getUser();
-          if (!user) return readDemoSubscriptions();
+          if (!user) return [] as Array<{
+            id: string;
+            user_id: string;
+            reminder_days: number[];
+            status: "active" | "paused" | "cancelled";
+          }>;
           const { data } = await supabase
             .from("subscriptions")
             .select("id, user_id, reminder_days, status")

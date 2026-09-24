@@ -44,42 +44,12 @@ export async function markNotificationReadAction(
   id: string
 ): Promise<ActionResult> {
   await markDemoNotificationRead(id);
-
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", id)
-        .eq("user_id", user.id);
-    }
-  }
-
   revalidateNotificationPaths();
   return { success: true };
 }
 
 export async function markAllNotificationsReadAction(): Promise<ActionResult> {
   await markAllDemoNotificationsRead();
-
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
-    }
-  }
-
   revalidateNotificationPaths();
   return { success: true };
 }
@@ -93,35 +63,17 @@ export async function updateNotificationPreferencesAction(
   }
 
   await writeDemoNotificationPreferences(parsed.data);
-
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      await supabase
-        .from("profiles")
-        .update({
-          notification_email: parsed.data.emailEnabled,
-          notification_in_app: parsed.data.inAppEnabled,
-        })
-        .eq("id", user.id);
-    }
-  }
-
   revalidateNotificationPaths();
   return { success: true };
 }
 
 async function resolveReminderContext() {
-  const preferences = await readDemoNotificationPreferences();
-  const sentIds = await readSentReminderIds();
-
   if (!isSupabaseConfigured()) {
-    const [cycles, subscriptions] = await Promise.all([
+    const [cycles, subscriptions, preferences, sentIds] = await Promise.all([
       readDemoBillingCycles(),
       readDemoSubscriptions(),
+      readDemoNotificationPreferences(),
+      readSentReminderIds(),
     ]);
     const schedule = buildReminderSchedule({ cycles, subscriptions });
     return {
@@ -140,21 +92,27 @@ async function resolveReminderContext() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const [cycles, subscriptions] = await Promise.all([
-      readDemoBillingCycles(),
-      readDemoSubscriptions(),
-    ]);
     return {
-      schedule: buildReminderSchedule({ cycles, subscriptions }),
-      preferences,
-      sentIds,
-      subscriptions,
-      email: "demo@dabills.app",
-      userId: "demo-user",
+      schedule: [] as ReminderScheduleItem[],
+      preferences: await readDemoNotificationPreferences(),
+      sentIds: [] as string[],
+      subscriptions: [] as Array<{
+        id: string;
+        name?: string;
+        amount?: number;
+        currency?: string;
+        user_id: string;
+        reminder_days: number[];
+        status: "active" | "paused" | "cancelled";
+      }>,
+      email: "",
+      userId: "",
     };
   }
 
-  const [{ data: cycles }, { data: subscriptions }] = await Promise.all([
+  const [preferences, sentIds, cyclesRes, subscriptionsRes] = await Promise.all([
+    readDemoNotificationPreferences(user.id),
+    readSentReminderIds(user.id),
     supabase.from("billing_cycles").select("*").eq("user_id", user.id),
     supabase
       .from("subscriptions")
@@ -164,8 +122,8 @@ async function resolveReminderContext() {
 
   return {
     schedule: buildReminderSchedule({
-      cycles: (cycles ?? []) as BillingCycle[],
-      subscriptions: (subscriptions ?? []) as Array<{
+      cycles: (cyclesRes.data ?? []) as BillingCycle[],
+      subscriptions: (subscriptionsRes.data ?? []) as Array<{
         id: string;
         user_id: string;
         reminder_days: number[];
@@ -174,7 +132,7 @@ async function resolveReminderContext() {
     }),
     preferences,
     sentIds,
-    subscriptions: (subscriptions ?? []) as Array<{
+    subscriptions: (subscriptionsRes.data ?? []) as Array<{
       id: string;
       name?: string;
       amount?: number;
@@ -307,7 +265,7 @@ export async function notifyPaymentReceivedAction(input: {
   currency: string;
   reference?: string | null;
 }) {
-  const preferences = await readDemoNotificationPreferences();
+  const preferences = await readDemoNotificationPreferences(input.userId);
   const amountLabel = formatMoney(input.amount, input.currency);
   const paymentsUrl = `${getAppUrl()}/dashboard/payments`;
 
@@ -339,7 +297,7 @@ export async function notifyPaymentApprovedAction(input: {
   amount: number;
   currency: string;
 }) {
-  const preferences = await readDemoNotificationPreferences();
+  const preferences = await readDemoNotificationPreferences(input.userId);
   const amountLabel = formatMoney(input.amount, input.currency);
   const paymentsUrl = `${getAppUrl()}/dashboard/payments`;
 
@@ -365,10 +323,40 @@ export async function notifyPaymentApprovedAction(input: {
 
 /** Manual trigger for demos / QA from settings page */
 export async function sendTestReminderAction(): Promise<ActionResult> {
-  const preferences = await readDemoNotificationPreferences();
+  if (!isSupabaseConfigured()) {
+    const preferences = await readDemoNotificationPreferences();
+    await dispatchNotification({
+      userId: "demo-user",
+      email: "demo@dabills.app",
+      type: "reminder_1d",
+      title: "Test reminder: bill due tomorrow",
+      body: "This is a test notification from DaBills settings.",
+      href: "/dashboard/billing",
+      emailSubject: "DaBills test reminder",
+      emailTemplate: "reminder_test",
+      emailHtml: reminderEmailHtml({
+        type: "reminder_1d",
+        subscriptionName: "Demo Subscription",
+        dueDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+        amountLabel: formatMoney(549),
+        billingUrl: `${getAppUrl()}/dashboard/billing`,
+      }),
+      preferences,
+    });
+    revalidateNotificationPaths();
+    return { success: true };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Sign in required" };
+
+  const preferences = await readDemoNotificationPreferences(user.id);
   await dispatchNotification({
-    userId: "demo-user",
-    email: "demo@dabills.app",
+    userId: user.id,
+    email: user.email ?? undefined,
     type: "reminder_1d",
     title: "Test reminder: bill due tomorrow",
     body: "This is a test notification from DaBills settings.",
@@ -383,6 +371,7 @@ export async function sendTestReminderAction(): Promise<ActionResult> {
       billingUrl: `${getAppUrl()}/dashboard/billing`,
     }),
     preferences,
+    metadata: { test: true },
   });
   revalidateNotificationPaths();
   return { success: true };

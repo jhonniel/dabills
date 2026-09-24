@@ -49,11 +49,12 @@ function prefersType(
 
 /**
  * Creates an in-app notification and optionally sends email via Resend.
- * Falls back to demo email logging when RESEND_API_KEY is missing.
+ * Persists to Supabase when configured; cookie store only in demo mode.
  */
 export async function dispatchNotification(input: NotifyInput) {
   const prefs =
-    input.preferences ?? (await readDemoNotificationPreferences());
+    input.preferences ??
+    (await readDemoNotificationPreferences(input.userId));
 
   if (!prefersType(prefs, input.type)) {
     return { inApp: null, email: null, skipped: true as const };
@@ -69,24 +70,6 @@ export async function dispatchNotification(input: NotifyInput) {
       href: input.href ?? null,
       metadata: input.metadata ?? null,
     });
-
-    // When Supabase is live, also persist (best-effort)
-    if (isSupabaseConfigured() && input.userId !== "demo-user") {
-      try {
-        const { createClient } = await import("@/lib/supabase/server");
-        const supabase = await createClient();
-        await supabase.from("notifications").insert({
-          user_id: input.userId,
-          type: input.type,
-          title: input.title,
-          body: input.body,
-          href: input.href ?? null,
-          metadata: input.metadata ?? null,
-        });
-      } catch (error) {
-        console.error("dispatchNotification supabase", error);
-      }
-    }
   }
 
   let emailResult = null;
@@ -148,5 +131,11 @@ export async function dispatchNotification(input: NotifyInput) {
     }
   }
 
-  return { inApp, email: emailResult, skipped: false as const, appUrl: getAppUrl() };
+  return {
+    inApp,
+    email: emailResult,
+    skipped: false as const,
+    appUrl: getAppUrl(),
+    isDemo: !isSupabaseConfigured(),
+  };
 }
