@@ -129,8 +129,7 @@ export async function listAllPaymentsForAdmin(filters: PaymentFilters = {}) {
     };
   } catch (error) {
     console.error("listAllPaymentsForAdmin", error);
-    const items = applyFilters(await readDemoPayments(), parsed);
-    return { items, isDemo: true as const };
+    return { items: [] as PaymentListItem[], isDemo: false as const };
   }
 }
 

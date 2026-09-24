@@ -26,6 +26,7 @@ import {
   normalizeClaimEmail,
   pendingAuthEmail,
 } from "@/lib/admin/pending-email";
+import { updateProfileCompat } from "@/lib/admin/profile-compat";
 import {
   readDemoPaymentMethods,
   writeDemoPaymentMethods,
@@ -202,17 +203,22 @@ export async function adminToggleInviteAction(
   isActive: boolean
 ): Promise<ActionResult> {
   const session = await requireAdmin();
-  const invites = await readAdminInvites();
-  const next = invites.map((item) =>
-    item.id === id
-      ? { ...item, is_active: isActive, updated_at: new Date().toISOString() }
-      : item
-  );
-  await writeAdminInvites(next);
 
-  if (isSupabaseConfigured() && !session.isDemo) {
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const invites = await readAdminInvites();
+    const next = invites.map((item) =>
+      item.id === id
+        ? { ...item, is_active: isActive, updated_at: new Date().toISOString() }
+        : item
+    );
+    await writeAdminInvites(next);
+  } else {
     const admin = createAdminClient();
-    await admin.from("invite_codes").update({ is_active: isActive }).eq("id", id);
+    const { error } = await admin
+      .from("invite_codes")
+      .update({ is_active: isActive })
+      .eq("id", id);
+    if (error) return { success: false, error: error.message };
   }
 
   await appendActivityLog({
@@ -242,17 +248,22 @@ export async function adminUpdateUserRoleAction(
   if (!guard.ok) return { success: false, error: guard.error };
 
   const session = await requireAdmin();
-  const users = await readAdminUsers();
-  const next = users.map((user) =>
-    user.id === userId
-      ? { ...user, role, updated_at: new Date().toISOString() }
-      : user
-  );
-  await writeAdminUsers(next);
 
-  if (isSupabaseConfigured() && !session.isDemo) {
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const users = await readAdminUsers();
+    const next = users.map((user) =>
+      user.id === userId
+        ? { ...user, role, updated_at: new Date().toISOString() }
+        : user
+    );
+    await writeAdminUsers(next);
+  } else {
     const admin = createAdminClient();
-    await admin.from("profiles").update({ role }).eq("id", userId);
+    const { error } = await admin
+      .from("profiles")
+      .update({ role })
+      .eq("id", userId);
+    if (error) return { success: false, error: error.message };
   }
 
   await appendActivityLog({
@@ -367,11 +378,10 @@ export async function adminToggleUserStatusAction(
     if (!updated) return { success: false, error: "User not found" };
   } else {
     const admin = createAdminClient();
-    const { error } = await admin
-      .from("profiles")
-      .update({ account_status: status })
-      .eq("id", userId);
-    if (error) return { success: false, error: error.message };
+    const { error } = await updateProfileCompat(admin, userId, {
+      account_status: status,
+    });
+    if (error) return { success: false, error };
 
     // Ban / unban in Auth so login is blocked when disabled
     await admin.auth.admin.updateUserById(userId, {
@@ -546,80 +556,94 @@ export async function adminCreateUserAction(input: {
   const tempPassword = `${crypto.randomUUID()}Aa1!`;
   const authEmail = email ?? pendingAuthEmail();
 
-  const { data: createdAuth, error: createError } =
-    await admin.auth.admin.createUser({
-      email: authEmail,
-      password: tempPassword,
-      email_confirm: false,
-      user_metadata: {
-        full_name: fullName,
-        account_status: "pending",
-        provisioned_by: "admin",
-      },
-    });
-
-  if (createError || !createdAuth.user) {
-    return {
-      success: false,
-      error: createError?.message ?? "Failed to create auth user",
-    };
-  }
-
-  const userId = createdAuth.user.id;
-
-  await admin
-    .from("profiles")
-    .update({
-      full_name: fullName,
-      email,
-      account_status: "pending",
-    })
-    .eq("id", userId);
-
-  let activationUrl: string | undefined;
-  let emailed = false;
-
-  if (sendActivation && email) {
-    try {
-      activationUrl = await buildSupabaseActivationUrl(email);
-      const delivery = await deliverActivationLink({
-        userId,
-        email,
-        fullName,
-        activationUrl,
-        actorId: session.userId,
+  try {
+    const { data: createdAuth, error: createError } =
+      await admin.auth.admin.createUser({
+        email: authEmail,
+        password: tempPassword,
+        email_confirm: false,
+        user_metadata: {
+          full_name: fullName,
+          account_status: "pending",
+          provisioned_by: "admin",
+        },
       });
-      if ("error" in delivery && delivery.error) {
-        return { success: false, error: delivery.error };
-      }
-      emailed = delivery.emailed;
-    } catch (error) {
+
+    if (createError || !createdAuth.user) {
       return {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "User created but claim link failed",
+        error: createError?.message ?? "Failed to create auth user",
       };
     }
+
+    const userId = createdAuth.user.id;
+
+    const profileUpdate = await updateProfileCompat(admin, userId, {
+      full_name: fullName,
+      // Only set email when we have a real one; placeholder stays in Auth until claim
+      email: email ?? null,
+      account_status: "pending",
+    });
+    if (profileUpdate.error) {
+      console.error("adminCreateUser profile update", profileUpdate.error);
+    }
+
+    let activationUrl: string | undefined;
+    let emailed = false;
+
+    if (sendActivation && email) {
+      try {
+        activationUrl = await buildSupabaseActivationUrl(email);
+        const delivery = await deliverActivationLink({
+          userId,
+          email,
+          fullName,
+          activationUrl,
+          actorId: session.userId,
+        });
+        if ("error" in delivery && delivery.error) {
+          return { success: false, error: delivery.error };
+        }
+        emailed = delivery.emailed;
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "User created but claim link failed",
+        };
+      }
+    }
+
+    try {
+      await appendActivityLog({
+        user_id: userId,
+        actor_id: session.userId,
+        action: "user.created",
+        entity_type: "profile",
+        entity_id: userId,
+        metadata: { email, sendActivation, emailed },
+        ip_address: null,
+        user_agent: "admin",
+      });
+    } catch (error) {
+      console.error("adminCreateUser activity log", error);
+    }
+
+    revalidateAdmin();
+    return {
+      success: true,
+      data: { id: userId, activationUrl, emailed },
+    };
+  } catch (error) {
+    console.error("adminCreateUserAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to create user account",
+    };
   }
-
-  await appendActivityLog({
-    user_id: userId,
-    actor_id: session.userId,
-    action: "user.created",
-    entity_type: "profile",
-    entity_id: userId,
-    metadata: { email, sendActivation, emailed },
-    ip_address: null,
-    user_agent: "admin",
-  });
-
-  revalidateAdmin();
-  return {
-    success: true,
-    data: { id: userId, activationUrl, emailed },
-  };
 }
 
 export async function adminSendActivationLinkAction(input: {
@@ -733,14 +757,43 @@ export async function adminSendActivationLinkAction(input: {
   }
 
   const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin
-    .from("profiles")
-    .select("id, email, full_name, account_status")
-    .eq("id", userId)
-    .maybeSingle();
+  type ClaimProfile = {
+    id: string;
+    email: string | null;
+    full_name: string | null;
+    account_status?: string | null;
+  };
+  let profile: ClaimProfile | null = null;
 
-  if (profileError || !profile) {
-    return { success: false, error: profileError?.message ?? "User not found" };
+  {
+    const withStatus = await admin
+      .from("profiles")
+      .select("id, email, full_name, account_status")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!withStatus.error && withStatus.data) {
+      profile = withStatus.data as ClaimProfile;
+    } else {
+      const fallback = await admin
+        .from("profiles")
+        .select("id, email, full_name")
+        .eq("id", userId)
+        .maybeSingle();
+      if (fallback.error || !fallback.data) {
+        return {
+          success: false,
+          error:
+            fallback.error?.message ??
+            withStatus.error?.message ??
+            "User not found",
+        };
+      }
+      profile = fallback.data as ClaimProfile;
+    }
+  }
+
+  if (!profile) {
+    return { success: false, error: "User not found" };
   }
 
   if (profile.account_status === "disabled") {
@@ -778,12 +831,13 @@ export async function adminSendActivationLinkAction(input: {
       return { success: false, error: authEmailError.message };
     }
 
-    const { error: profileEmailError } = await admin
-      .from("profiles")
-      .update({ email: providedEmail })
-      .eq("id", userId);
+    const { error: profileEmailError } = await updateProfileCompat(
+      admin,
+      userId,
+      { email: providedEmail }
+    );
     if (profileEmailError) {
-      return { success: false, error: profileEmailError.message };
+      return { success: false, error: profileEmailError };
     }
     claimEmail = providedEmail;
   }
@@ -798,10 +852,7 @@ export async function adminSendActivationLinkAction(input: {
   try {
     const activationUrl = await buildSupabaseActivationUrl(claimEmail);
     if (profile.account_status !== "active") {
-      await admin
-        .from("profiles")
-        .update({ account_status: "pending" })
-        .eq("id", userId);
+      await updateProfileCompat(admin, userId, { account_status: "pending" });
     }
 
     let emailed = false;
@@ -852,13 +903,23 @@ export async function adminUpdateCategoryAction(input: {
   color: string;
 }): Promise<ActionResult> {
   const session = await requireAdmin();
-  const categories = await readAdminCategories();
-  const next = categories.map((category) =>
-    category.id === input.id
-      ? { ...category, name: input.name, color: input.color }
-      : category
-  );
-  await writeAdminCategories(next);
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const categories = await readAdminCategories();
+    const next = categories.map((category) =>
+      category.id === input.id
+        ? { ...category, name: input.name, color: input.color }
+        : category
+    );
+    await writeAdminCategories(next);
+  } else {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("categories")
+      .update({ name: input.name, color: input.color })
+      .eq("id", input.id);
+    if (error) return { success: false, error: error.message };
+  }
 
   await appendActivityLog({
     user_id: null,
@@ -881,22 +942,64 @@ export async function adminCreateCategoryAction(input: {
   color: string;
 }): Promise<ActionResult<Category>> {
   const session = await requireAdmin();
-  const categories = await readAdminCategories();
-  if (categories.some((c) => c.slug === input.slug)) {
-    return { success: false, error: "Category slug already exists" };
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const categories = await readAdminCategories();
+    if (categories.some((c) => c.slug === input.slug)) {
+      return { success: false, error: "Category slug already exists" };
+    }
+
+    const created: Category = {
+      id: crypto.randomUUID(),
+      slug: input.slug as Category["slug"],
+      name: input.name,
+      icon: "MoreHorizontal",
+      color: input.color,
+      sort_order: categories.length + 1,
+      created_at: new Date().toISOString(),
+    };
+
+    await writeAdminCategories([...categories, created]);
+    await appendActivityLog({
+      user_id: null,
+      actor_id: session.userId,
+      action: "category.created",
+      entity_type: "category",
+      entity_id: created.id,
+      metadata: { name: created.name },
+      ip_address: null,
+      user_agent: "admin",
+    });
+
+    revalidateAdmin();
+    return { success: true, data: created };
   }
 
-  const created: Category = {
-    id: crypto.randomUUID(),
-    slug: input.slug as Category["slug"],
-    name: input.name,
-    icon: "MoreHorizontal",
-    color: input.color,
-    sort_order: categories.length + 1,
-    created_at: new Date().toISOString(),
-  };
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("categories")
+    .select("id", { count: "exact", head: true });
 
-  await writeAdminCategories([...categories, created]);
+  const { data, error } = await admin
+    .from("categories")
+    .insert({
+      slug: input.slug,
+      name: input.name,
+      icon: "MoreHorizontal",
+      color: input.color,
+      sort_order: (count ?? 0) + 1,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    if (error?.message.toLowerCase().includes("unique")) {
+      return { success: false, error: "Category slug already exists" };
+    }
+    return { success: false, error: error?.message ?? "Failed to create category" };
+  }
+
+  const created = data as Category;
   await appendActivityLog({
     user_id: null,
     actor_id: session.userId,

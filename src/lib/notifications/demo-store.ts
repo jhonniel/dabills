@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 
+import { isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { EmailLog, Notification } from "@/types";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -141,6 +143,35 @@ export async function readDemoEmailLogs(): Promise<EmailLog[]> {
 }
 
 export async function appendDemoEmailLog(log: Omit<EmailLog, "id" | "created_at">) {
+  if (isSupabaseConfigured()) {
+    try {
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from("email_logs")
+        .insert({
+          user_id: log.user_id,
+          to_email: log.to_email,
+          subject: log.subject,
+          template: log.template,
+          status: log.status,
+          provider_id: log.provider_id,
+          error: log.error,
+          metadata: log.metadata,
+        })
+        .select()
+        .single();
+      if (!error && data) return data as EmailLog;
+      console.error("appendDemoEmailLog", error?.message);
+    } catch (error) {
+      console.error("appendDemoEmailLog", error);
+    }
+    return {
+      ...log,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+    };
+  }
+
   const items = await readDemoEmailLogs();
   const entry: EmailLog = {
     ...log,

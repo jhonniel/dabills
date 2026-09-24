@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 
 import { DEMO_CATEGORIES } from "@/lib/billing/demo-data";
+import { isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   AccountStatus,
   ActivityLog,
@@ -8,6 +10,14 @@ import type {
   InviteCode,
   Profile,
 } from "@/types";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function asUuidOrNull(value: string | null | undefined) {
+  if (!value || !UUID_RE.test(value)) return null;
+  return value;
+}
 
 const USERS_COOKIE = "dabills_demo_admin_users_v3";
 const INVITES_COOKIE = "dabills_demo_admin_invites";
@@ -355,6 +365,35 @@ export async function readActivityLogs() {
 export async function appendActivityLog(
   entry: Omit<ActivityLog, "id" | "created_at">
 ) {
+  if (isSupabaseConfigured()) {
+    try {
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from("activity_logs")
+        .insert({
+          user_id: asUuidOrNull(entry.user_id),
+          actor_id: asUuidOrNull(entry.actor_id),
+          action: entry.action,
+          entity_type: entry.entity_type,
+          entity_id: asUuidOrNull(entry.entity_id),
+          metadata: entry.metadata,
+          ip_address: entry.ip_address,
+          user_agent: entry.user_agent,
+        })
+        .select()
+        .single();
+      if (!error && data) return data as ActivityLog;
+      console.error("appendActivityLog", error?.message);
+    } catch (error) {
+      console.error("appendActivityLog", error);
+    }
+    return {
+      ...entry,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+    };
+  }
+
   const items = await readActivityLogs();
   const created: ActivityLog = {
     ...entry,

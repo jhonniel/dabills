@@ -21,22 +21,16 @@ import {
   sumSalesInCurrentMonth,
 } from "@/lib/admin/finance-series";
 import type {
+  ActivityLog,
   AdminExpense,
+  Category,
+  EmailLog,
   InviteCode,
   Profile,
   Subscription,
   SubscriptionPlan,
   SubscriptionPlanWithSeats,
 } from "@/types";
-
-async function countDemoSeats(planId: string) {
-  const subs = await readDemoSubscriptions();
-  return subs.filter(
-    (s) =>
-      s.plan_id === planId &&
-      (s.status === "active" || s.status === "paused")
-  ).length;
-}
 
 async function listDemoPlansWithSeats() {
   const [plans, subs] = await Promise.all([
@@ -59,6 +53,36 @@ async function listDemoPlansWithSeats() {
   }));
 }
 
+type SubWithCategory = Subscription & {
+  category?: { name?: string | null } | null;
+};
+
+async function listLiveSubscriptions() {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("subscriptions")
+    .select("*, category:categories(id, slug, name, icon, color)")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.warn("listLiveSubscriptions", error.message);
+    return [] as SubWithCategory[];
+  }
+  return (data ?? []) as SubWithCategory[];
+}
+
+async function listLiveBillingCycles() {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("billing_cycles")
+    .select("id, status")
+    .order("due_date", { ascending: false });
+  if (error) {
+    console.warn("listLiveBillingCycles", error.message);
+    return [] as { id: string; status: string }[];
+  }
+  return (data ?? []) as { id: string; status: string }[];
+}
+
 export async function listSubscriptionPlans(): Promise<{
   items: SubscriptionPlanWithSeats[];
   isDemo: boolean;
@@ -77,7 +101,8 @@ export async function listSubscriptionPlans(): Promise<{
       .order("created_at", { ascending: false });
 
     if (error || !plans) {
-      return { items: await listDemoPlansWithSeats(), isDemo: true };
+      console.warn("listSubscriptionPlans", error?.message);
+      return { items: [], isDemo: false };
     }
 
     const planRows = plans as SubscriptionPlan[];
@@ -107,25 +132,48 @@ export async function listSubscriptionPlans(): Promise<{
       })),
       isDemo: false,
     };
-  } catch {
-    return { items: await listDemoPlansWithSeats(), isDemo: true };
+  } catch (error) {
+    console.warn("listSubscriptionPlans", error);
+    return { items: [], isDemo: false };
   }
 }
 
 export async function getAdminOverview() {
   await requireAdmin();
 
-  const [users, invites, payments, subscriptions, bills, logs, emails, expenses] =
+  const [usersRes, invitesRes, payments, expenses, activityRes, emailsRes] =
     await Promise.all([
-      readAdminUsers(),
-      readAdminInvites(),
+      listAdminUsers(),
+      listAdminInvites(),
       listAllPaymentsForAdmin({ status: "all" }),
+      listAdminExpenses(),
+      listAdminActivity(),
+      listAdminEmails(),
+    ]);
+
+  const users = usersRes.items;
+  const invites = invitesRes.items;
+  const logs = activityRes.items;
+  const emails = emailsRes.items;
+
+  let subscriptionsCount = 0;
+  let billsCount = 0;
+
+  if (!isSupabaseConfigured() || usersRes.isDemo) {
+    const [subs, bills] = await Promise.all([
       readDemoSubscriptions(),
       readDemoBillingCycles(),
-      readActivityLogs(),
-      readDemoEmailLogs(),
-      listAdminExpenses(),
     ]);
+    subscriptionsCount = subs.length;
+    billsCount = bills.length;
+  } else {
+    const [subs, bills] = await Promise.all([
+      listLiveSubscriptions(),
+      listLiveBillingCycles(),
+    ]);
+    subscriptionsCount = subs.length;
+    billsCount = bills.length;
+  }
 
   const pendingPayments = payments.items.filter(
     (p) => p.status === "pending_verification"
@@ -143,8 +191,8 @@ export async function getAdminOverview() {
       (u) => (u.account_status ?? u.status) !== "disabled"
     ).length,
     invitesActive: invites.filter((i) => i.is_active).length,
-    subscriptionsCount: subscriptions.length,
-    billsCount: bills.length,
+    subscriptionsCount,
+    billsCount,
     pendingApprovals: pendingPayments.length,
     approvedVolume: payments.items
       .filter((p) => p.status === "approved")
@@ -174,7 +222,8 @@ export async function listAdminUsers() {
     ]);
 
     if (error || !data) {
-      return { items: await readAdminUsers(), isDemo: true as const };
+      console.warn("listAdminUsers", error?.message);
+      return { items: [], isDemo: false as const };
     }
 
     const seatCounts = new Map<string, number>();
@@ -197,8 +246,9 @@ export async function listAdminUsers() {
       }),
       isDemo: false as const,
     };
-  } catch {
-    return { items: await readAdminUsers(), isDemo: true as const };
+  } catch (error) {
+    console.warn("listAdminUsers", error);
+    return { items: [], isDemo: false as const };
   }
 }
 
@@ -217,28 +267,95 @@ export async function listAdminInvites() {
       .order("created_at", { ascending: false });
 
     if (error || !data) {
-      return { items: await readAdminInvites(), isDemo: true as const };
+      console.warn("listAdminInvites", error?.message);
+      return { items: [], isDemo: false as const };
     }
 
     return { items: data as InviteCode[], isDemo: false as const };
-  } catch {
-    return { items: await readAdminInvites(), isDemo: true as const };
+  } catch (error) {
+    console.warn("listAdminInvites", error);
+    return { items: [], isDemo: false as const };
   }
 }
 
 export async function listAdminCategories() {
   await requireAdmin();
-  return { items: await readAdminCategories(), isDemo: true as const };
+
+  if (!isSupabaseConfigured()) {
+    return { items: await readAdminCategories(), isDemo: true as const };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("categories")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.warn("listAdminCategories", error.message);
+      return { items: [], isDemo: false as const };
+    }
+
+    return { items: (data ?? []) as Category[], isDemo: false as const };
+  } catch (error) {
+    console.warn("listAdminCategories", error);
+    return { items: [], isDemo: false as const };
+  }
 }
 
 export async function listAdminActivity() {
   await requireAdmin();
-  return { items: await readActivityLogs(), isDemo: true as const };
+
+  if (!isSupabaseConfigured()) {
+    return { items: await readActivityLogs(), isDemo: true as const };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("activity_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.warn("listAdminActivity", error.message);
+      return { items: [], isDemo: false as const };
+    }
+
+    return { items: (data ?? []) as ActivityLog[], isDemo: false as const };
+  } catch (error) {
+    console.warn("listAdminActivity", error);
+    return { items: [], isDemo: false as const };
+  }
 }
 
 export async function listAdminEmails() {
   await requireAdmin();
-  return { items: await readDemoEmailLogs(), isDemo: true as const };
+
+  if (!isSupabaseConfigured()) {
+    return { items: await readDemoEmailLogs(), isDemo: true as const };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("email_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.warn("listAdminEmails", error.message);
+      return { items: [], isDemo: false as const };
+    }
+
+    return { items: (data ?? []) as EmailLog[], isDemo: false as const };
+  } catch (error) {
+    console.warn("listAdminEmails", error);
+    return { items: [], isDemo: false as const };
+  }
 }
 
 export async function listAdminExpenses(): Promise<{
@@ -272,12 +389,26 @@ export async function listAdminExpenses(): Promise<{
 
 export async function getAdminAnalytics() {
   await requireAdmin();
-  const [users, payments, subscriptions, bills] = await Promise.all([
-    readAdminUsers(),
+
+  const [usersRes, payments] = await Promise.all([
+    listAdminUsers(),
     listAllPaymentsForAdmin({ status: "all" }),
-    readDemoSubscriptions(),
-    readDemoBillingCycles(),
   ]);
+
+  const users = usersRes.items;
+
+  let subscriptions: SubWithCategory[] = [];
+  let bills: { id: string; status: string }[] = [];
+
+  if (!isSupabaseConfigured() || usersRes.isDemo) {
+    subscriptions = await readDemoSubscriptions();
+    bills = await readDemoBillingCycles();
+  } else {
+    [subscriptions, bills] = await Promise.all([
+      listLiveSubscriptions(),
+      listLiveBillingCycles(),
+    ]);
+  }
 
   const byStatus = {
     pending: payments.items.filter((p) => p.status === "pending").length,

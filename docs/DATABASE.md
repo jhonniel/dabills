@@ -29,7 +29,9 @@ Creates / resets:
 | Admin | `admin@dabills.app` | `DaBillsAdmin1!` |
 | User | `jordan@example.com` | `DaBillsUser1!` |
 
-Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Apply migration `007` first if role updates fail.
+Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
+
+**Important:** Apply migrations **001 → 012 in order**. Skipping `010` (account_status) while applying `011` (code_name) breaks admin user create/claim updates. If create account shows an unexpected error page, run `010` and `012` in the Supabase SQL editor, then retry.
 
 1. Admin configures pay-to methods at `/admin/payment-setup` (optional QR image per method).
 2. Admin can create a user with **name only** (email optional). Email is required when sending/copying a **claim link**.
