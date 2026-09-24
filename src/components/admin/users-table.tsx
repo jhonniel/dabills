@@ -16,8 +16,11 @@ import {
 import type { AdminUser } from "@/lib/admin/demo-store";
 import {
   filterAdminUsers,
-  type UserSearchHasFilter,
 } from "@/lib/admin/user-search";
+import {
+  displayUserEmail,
+  isPlaceholderEmail,
+} from "@/lib/admin/pending-email";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +40,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 
 type CreateDelivery = "later" | "email" | "link";
 
@@ -125,20 +127,19 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
   const [delivery, setDelivery] = useState<CreateDelivery>("later");
   const [lastLink, setLastLink] = useState<string | null>(null);
   const [likeQuery, setLikeQuery] = useState("");
-  const [hasFilters, setHasFilters] = useState<UserSearchHasFilter[]>([]);
+  const [claimForUserId, setClaimForUserId] = useState<string | null>(null);
+  const [claimEmail, setClaimEmail] = useState("");
+  const [claimSendEmail, setClaimSendEmail] = useState(true);
 
   const filtered = useMemo(
-    () => filterAdminUsers(users, { like: likeQuery, has: hasFilters }),
-    [users, likeQuery, hasFilters]
+    () => filterAdminUsers(users, { like: likeQuery }),
+    [users, likeQuery]
   );
 
-  const toggleHas = (filter: UserSearchHasFilter) => {
-    setHasFilters((prev) =>
-      prev.includes(filter)
-        ? prev.filter((item) => item !== filter)
-        : [...prev, filter]
-    );
-  };
+  const needsEmailForClaim = delivery === "email" || delivery === "link";
+  const canCreate =
+    fullName.trim().length >= 2 &&
+    (!needsEmailForClaim || Boolean(email.trim()));
 
   const changeRole = (user: AdminUser) => {
     startTransition(async () => {
@@ -167,11 +168,16 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
     });
   };
 
-  const prepareActivation = (user: AdminUser, sendEmail: boolean) => {
+  const runClaimLink = (
+    user: AdminUser,
+    sendEmail: boolean,
+    emailOverride?: string
+  ) => {
     startTransition(async () => {
       const result = await adminSendActivationLinkAction({
         userId: user.id,
         sendEmail,
+        email: emailOverride,
       });
       if (!result.success) {
         toast.error(result.error);
@@ -179,22 +185,34 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
       }
       const url = result.data?.activationUrl ?? null;
       setLastLink(url);
+      setClaimForUserId(null);
+      setClaimEmail("");
       if (sendEmail) {
         toast.success(
           result.data?.emailed
-            ? "Activation email sent"
-            : "Email not configured — copy the direct link below"
+            ? "Claim link emailed — no invite code needed"
+            : "Email not configured — copy the claim link below"
         );
       } else if (url) {
         try {
           await navigator.clipboard.writeText(url);
-          toast.success("Direct activation link copied");
+          toast.success("Claim link copied — no invite code needed");
         } catch {
-          toast.success("Direct link ready — copy it below");
+          toast.success("Claim link ready — copy it below");
         }
       }
       router.refresh();
     });
+  };
+
+  const prepareActivation = (user: AdminUser, sendEmail: boolean) => {
+    if (isPlaceholderEmail(user.email)) {
+      setClaimForUserId(user.id);
+      setClaimSendEmail(sendEmail);
+      setClaimEmail("");
+      return;
+    }
+    runClaimLink(user, sendEmail);
   };
 
   const saveCodeName = (user: AdminUser, value: string) => {
@@ -218,8 +236,9 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
         <CardHeader>
           <CardTitle className="font-display text-lg">Create user account</CardTitle>
           <CardDescription>
-            Create now, then email the activation link later — or copy a direct
-            link to share yourself. Link a code name on the profile after create.
+            Name is enough to create a pending seat. Email is only required when
+            you send or copy a claim link — the recipient sets a password and does
+            not need an invite code.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -233,7 +252,12 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="create-user-email">Email</Label>
+            <Label htmlFor="create-user-email">
+              Email{" "}
+              <span className="font-normal text-muted-foreground">
+                {needsEmailForClaim ? "(required for claim link)" : "(optional)"}
+              </span>
+            </Label>
             <Input
               id="create-user-email"
               type="email"
@@ -244,7 +268,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
           </div>
           <fieldset className="space-y-2 sm:col-span-2">
             <Legend className="text-sm font-medium text-zinc-300">
-              Activation
+              Claim link
             </Legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {(
@@ -252,17 +276,17 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                   {
                     value: "later" as const,
                     title: "Send later",
-                    hint: "Keep pending until you email or copy a link",
+                    hint: "Create without email — add it when you claim later",
                   },
                   {
                     value: "email" as const,
-                    title: "Email now",
-                    hint: "Send the activation email immediately",
+                    title: "Email claim link",
+                    hint: "Requires email — no invite code for the user",
                   },
                   {
                     value: "link" as const,
-                    title: "Direct link",
-                    hint: "Generate a link you can copy and share",
+                    title: "Copy claim link",
+                    hint: "Requires email — share the direct claim URL",
                   },
                 ] as const
               ).map((option) => (
@@ -291,12 +315,12 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
           </fieldset>
           <div className="sm:col-span-2">
             <Button
-              disabled={pending || !email.trim() || !fullName.trim()}
+              disabled={pending || !canCreate}
               className="rounded-xl bg-cyan-400 font-semibold text-black hover:bg-cyan-300"
               onClick={() => {
                 startTransition(async () => {
                   const result = await adminCreateUserAction({
-                    email,
+                    email: email.trim() || undefined,
                     fullName,
                     sendActivation: delivery === "email",
                   });
@@ -309,6 +333,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                     const linkResult = await adminSendActivationLinkAction({
                       userId: result.data!.id,
                       sendEmail: false,
+                      email: email.trim() || undefined,
                     });
                     if (!linkResult.success) {
                       toast.error(linkResult.error);
@@ -319,10 +344,10 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                     if (url) {
                       try {
                         await navigator.clipboard.writeText(url);
-                        toast.success("Account created — direct link copied");
+                        toast.success("Account created — claim link copied");
                       } catch {
                         toast.success(
-                          "Account created — copy the direct link below"
+                          "Account created — copy the claim link below"
                         );
                       }
                     }
@@ -330,13 +355,13 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                     setLastLink(result.data?.activationUrl ?? null);
                     toast.success(
                       result.data?.emailed
-                        ? "Account created and activation email sent"
-                        : "Account created — copy the link below (email not configured)"
+                        ? "Account created and claim link emailed"
+                        : "Account created — copy the claim link below (email not configured)"
                     );
                   } else {
                     setLastLink(null);
                     toast.success(
-                      "Account created as pending. Email or copy a link when ready."
+                      "Account created as pending. Add email when you send a claim link."
                     );
                   }
 
@@ -352,7 +377,9 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
           </div>
           {lastLink && (
             <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:col-span-2">
-              <p className="text-xs text-muted-foreground">Direct activation link</p>
+              <p className="text-xs text-muted-foreground">
+                Direct claim link (no invite code)
+              </p>
               <div className="flex flex-wrap items-center gap-2">
                 <code className="min-w-0 flex-1 truncate text-xs text-cyan-200">
                   {lastLink}
@@ -376,47 +403,61 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
         </CardContent>
       </Card>
 
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={likeQuery}
-            onChange={(e) => setLikeQuery(e.target.value)}
-            placeholder="Search like name, email, or code name…"
-            className="pl-9"
-            aria-label="Search users"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Has:</span>
-          {(
-            [
-              { id: "code_name" as const, label: "Code name" },
-              { id: "subscriptions" as const, label: "Subscriptions" },
-            ] as const
-          ).map((item) => {
-            const active = hasFilters.includes(item.id);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => toggleHas(item.id)}
-                className={cn(
-                  "rounded-lg border px-2.5 py-1 text-xs transition-colors",
-                  active
-                    ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
-                    : "border-white/10 text-muted-foreground hover:border-white/20"
-                )}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-          <span className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} of {users.length}
-          </span>
-        </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={likeQuery}
+          onChange={(e) => setLikeQuery(e.target.value)}
+          placeholder="Search like name, email, or code name…"
+          className="pl-10 md:pl-10"
+          aria-label="Search users"
+        />
       </div>
+
+      {claimForUserId && (
+        <div className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+          <p className="text-sm text-zinc-200">
+            Add an email to send or copy the claim link. The user will set a
+            password — no invite code required.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Label htmlFor="claim-email">Email for claim link</Label>
+              <Input
+                id="claim-email"
+                type="email"
+                value={claimEmail}
+                onChange={(e) => setClaimEmail(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                disabled={pending}
+                onClick={() => {
+                  setClaimForUserId(null);
+                  setClaimEmail("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="rounded-xl bg-cyan-400 font-semibold text-black hover:bg-cyan-300"
+                disabled={pending || !claimEmail.trim()}
+                onClick={() => {
+                  const user = users.find((item) => item.id === claimForUserId);
+                  if (!user) return;
+                  runClaimLink(user, claimSendEmail, claimEmail.trim());
+                }}
+              >
+                {claimSendEmail ? "Email claim link" : "Copy claim link"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3 md:hidden">
         {filtered.map((user) => {
@@ -430,7 +471,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                 <div className="min-w-0">
                   <p className="font-medium">{user.full_name ?? "Unnamed"}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {user.email}
+                    {displayUserEmail(user.email)}
                   </p>
                   {user.code_name && (
                     <p className="mt-1 font-mono text-xs text-cyan-300">
@@ -507,7 +548,9 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                 <TableRow key={user.id} className="border-white/10">
                   <TableCell>
                     <p className="font-medium">{user.full_name ?? "Unnamed"}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {displayUserEmail(user.email)}
+                    </p>
                   </TableCell>
                   <TableCell>
                     <CodeNameField

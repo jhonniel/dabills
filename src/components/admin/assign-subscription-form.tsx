@@ -2,21 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 
 import { adminAssignUserToPlanAction } from "@/features/admin/actions";
 import type { AdminUser } from "@/lib/admin/demo-store";
-import {
-  filterAdminUsers,
-  type UserSearchHasFilter,
-} from "@/lib/admin/user-search";
+import { displayUserEmail } from "@/lib/admin/pending-email";
+import { filterAdminUsers } from "@/lib/admin/user-search";
 import { formatMoney, getNextBillingDate } from "@/lib/billing/expenses";
+import { cn } from "@/lib/utils";
 import type { SubscriptionPlanWithSeats } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -24,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -39,6 +42,114 @@ function defaultNextBill(
     fromDate,
     plan.billing_frequency,
     plan.custom_interval_days
+  );
+}
+
+function userLabel(user: AdminUser) {
+  const name = user.full_name ?? "Unnamed";
+  const code = user.code_name?.trim();
+  const email = displayUserEmail(user.email);
+  return code ? `${code} · ${name} · ${email}` : `${name} · ${email}`;
+}
+
+function UserSearchSelect({
+  users,
+  value,
+  onChange,
+}: {
+  users: AdminUser[];
+  value: string;
+  onChange: (userId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(
+    () => filterAdminUsers(users, { like: query }),
+    [users, query]
+  );
+  const selected = users.find((user) => user.id === value);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-11 w-full justify-between rounded-lg border-input bg-transparent px-3 font-normal md:h-8"
+        >
+          <span
+            className={cn(
+              "truncate text-left",
+              !selected && "text-muted-foreground"
+            )}
+          >
+            {selected ? userLabel(selected) : "Search and select user…"}
+          </span>
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-2"
+      >
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Name, email, or code name…"
+            className="h-9 pl-9 md:h-9 md:pl-9"
+            autoFocus
+          />
+        </div>
+        <div className="mt-2 max-h-56 overflow-y-auto overscroll-contain">
+          {filtered.length === 0 ? (
+            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+              No users match.
+            </p>
+          ) : (
+            <ul className="space-y-0.5">
+              {filtered.map((user) => {
+                const active = user.id === value;
+                return (
+                  <li key={user.id}>
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-white/5",
+                        active && "bg-cyan-400/10 text-cyan-100"
+                      )}
+                      onClick={() => {
+                        onChange(user.id);
+                        setOpen(false);
+                        setQuery("");
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "size-4 shrink-0",
+                          active ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <span className="min-w-0 truncate">{userLabel(user)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -60,8 +171,6 @@ export function AdminAssignSubscriptionForm({
     [plans]
   );
   const [userId, setUserId] = useState(defaultUserId ?? "");
-  const [userLike, setUserLike] = useState("");
-  const [userHas, setUserHas] = useState<UserSearchHasFilter[]>([]);
   const [planId, setPlanId] = useState(
     defaultPlanId && activePlans.some((p) => p.id === defaultPlanId)
       ? defaultPlanId
@@ -76,29 +185,10 @@ export function AdminAssignSubscriptionForm({
     )
   );
 
-  const filteredUsers = useMemo(
-    () => filterAdminUsers(users, { like: userLike, has: userHas }),
-    [users, userLike, userHas]
-  );
-
-  useEffect(() => {
-    if (userId && !filteredUsers.some((user) => user.id === userId)) {
-      setUserId("");
-    }
-  }, [filteredUsers, userId]);
-
   const remaining = selected
     ? Math.max(0, selected.max_capacity - selected.seats_used)
     : 0;
   const isFull = Boolean(selected && remaining === 0);
-
-  const toggleHas = (filter: UserSearchHasFilter) => {
-    setUserHas((prev) =>
-      prev.includes(filter)
-        ? prev.filter((item) => item !== filter)
-        : [...prev, filter]
-    );
-  };
 
   const onPlanChange = (id: string) => {
     setPlanId(id);
@@ -200,64 +290,11 @@ export function AdminAssignSubscriptionForm({
 
       <div className="space-y-2">
         <Label>Assign to user</Label>
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={userLike}
-              onChange={(e) => setUserLike(e.target.value)}
-              placeholder="Search like name, email, or code name…"
-              className="pl-9"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Has:</span>
-            {(
-              [
-                { id: "code_name" as const, label: "Code name" },
-                { id: "subscriptions" as const, label: "Subscriptions" },
-              ] as const
-            ).map((item) => {
-              const active = userHas.includes(item.id);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => toggleHas(item.id)}
-                  className={cn(
-                    "rounded-lg border px-2.5 py-1 text-xs transition-colors",
-                    active
-                      ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
-                      : "border-white/10 text-muted-foreground hover:border-white/20"
-                  )}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-            <span className="ml-auto text-xs text-muted-foreground">
-              {filteredUsers.length} users
-            </span>
-          </div>
-        </div>
-        <Select value={userId || undefined} onValueChange={setUserId}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select user" />
-          </SelectTrigger>
-          <SelectContent>
-            {filteredUsers.map((user) => (
-              <SelectItem key={user.id} value={user.id}>
-                {user.code_name ? `${user.code_name} · ` : ""}
-                {user.full_name ?? "Unnamed"} · {user.email}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {filteredUsers.length === 0 && (
-          <p className="text-xs text-muted-foreground">
-            No users match like/has filters.
-          </p>
-        )}
+        <UserSearchSelect
+          users={users}
+          value={userId}
+          onChange={setUserId}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

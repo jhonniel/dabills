@@ -34,7 +34,7 @@ export function ActivateAccountForm({
             toast.error(result.error);
             return;
           }
-          toast.success("Account activated");
+          toast.success("Account claimed");
           router.replace(demoToken ? "/login?activated=1" : "/dashboard");
           router.refresh();
         });
@@ -68,7 +68,7 @@ export function ActivateAccountForm({
         disabled={pending}
         className="w-full rounded-xl bg-cyan-400 font-semibold text-black hover:bg-cyan-300"
       >
-        {pending ? "Activating…" : "Activate account"}
+        {pending ? "Claiming…" : "Claim account"}
       </Button>
     </form>
   );

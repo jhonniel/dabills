@@ -68,7 +68,7 @@ export type CategorySlug =
 
 export interface Profile {
   id: string;
-  email: string;
+  email: string | null;
   full_name: string | null;
   /** Admin-assigned alias shown on the user profile */
   code_name: string | null;
@@ -294,7 +294,7 @@ export interface Database {
     Tables: {
       profiles: {
         Row: Profile;
-        Insert: Partial<Profile> & Pick<Profile, "id" | "email">;
+        Insert: Partial<Profile> & Pick<Profile, "id">;
         Update: Partial<Profile>;
         Relationships: [];
       };

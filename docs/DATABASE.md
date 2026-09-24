@@ -14,6 +14,7 @@ Apply SQL files in `supabase/migrations/` **in numeric order** against your Supa
 | `008_admin_expenses.sql` | Admin platform expenses (one-time / recurring + next date) |
 | `009_payment_method_qr.sql` | `payment_methods.qr_image_url` + public `payment-qr` storage bucket |
 | `011_profile_code_name.sql` | `profiles.code_name` admin-linked alias + unique index |
+| `012_optional_profile_email.sql` | Allow `profiles.email` null until a claim link is sent |
 
 ## Seed accounts (local)
 
@@ -31,10 +32,12 @@ Creates / resets:
 Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Apply migration `007` first if role updates fail.
 
 1. Admin configures pay-to methods at `/admin/payment-setup` (optional QR image per method).
-2. User settles a bill, sees those methods (and QR if uploaded), uploads a receipt.
-3. OCR reads **amount** and **transfer reference** only. Match → payment `approved`, bill `paid`.
-4. Receipt is **compressed** (JPEG, max 1600px) then stored in Supabase Storage (`receipts` bucket).
-5. Missing amount/reference → `pending_verification` for `/admin/payments` review.
+2. Admin can create a user with **name only** (email optional). Email is required when sending/copying a **claim link**.
+3. Claim link opens `/activate` — recipient sets a password (**no invite code**).
+4. User settles a bill, sees those methods (and QR if uploaded), uploads a receipt.
+5. OCR reads **amount** and **transfer reference** only. Match → payment `approved`, bill `paid`.
+6. Receipt is **compressed** (JPEG, max 1600px) then stored in Supabase Storage (`receipts` bucket).
+7. Missing amount/reference → `pending_verification` for `/admin/payments` review.
 
 ## Shared subscription plans
 

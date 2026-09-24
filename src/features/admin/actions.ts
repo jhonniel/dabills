@@ -11,6 +11,7 @@ import {
   readAdminUsers,
   setDemoUserAccountStatus,
   setDemoUserCodeName,
+  setDemoUserEmail,
   writeAdminCategories,
   writeAdminInvites,
   writeAdminUsers,
@@ -19,7 +20,12 @@ import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 import { appendDemoEmailLog } from "@/lib/notifications/demo-store";
 import { activationEmailHtml } from "@/emails/templates/activation";
 import { sendEmail } from "@/services/email/client";
-import { adminCreateUserSchema } from "@/validators/admin-user";
+import { adminCreateUserSchema, adminSendActivationSchema } from "@/validators/admin-user";
+import {
+  isPlaceholderEmail,
+  normalizeClaimEmail,
+  pendingAuthEmail,
+} from "@/lib/admin/pending-email";
 import {
   readDemoPaymentMethods,
   writeDemoPaymentMethods,
@@ -399,7 +405,7 @@ async function deliverActivationLink(input: {
     activationUrl: input.activationUrl,
     recipientName: input.fullName ?? undefined,
   });
-  const subject = "Activate your DaBills account";
+  const subject = "Claim your DaBills account";
 
   if (process.env.RESEND_API_KEY) {
     const result = await sendEmail({
@@ -458,7 +464,7 @@ async function buildSupabaseActivationUrl(email: string) {
 }
 
 export async function adminCreateUserAction(input: {
-  email: string;
+  email?: string;
   fullName: string;
   sendActivation?: boolean;
 }): Promise<
@@ -480,9 +486,16 @@ export async function adminCreateUserAction(input: {
     };
   }
 
-  const email = parsed.data.email.trim().toLowerCase();
+  const email = normalizeClaimEmail(parsed.data.email);
   const fullName = parsed.data.fullName.trim();
   const sendActivation = Boolean(parsed.data.sendActivation);
+
+  if (sendActivation && !email) {
+    return {
+      success: false,
+      error: "Email is required when sending a claim link",
+    };
+  }
 
   if (!isSupabaseConfigured() || session.isDemo) {
     try {
@@ -490,11 +503,11 @@ export async function adminCreateUserAction(input: {
       let activationUrl: string | undefined;
       let emailed = false;
 
-      if (sendActivation && created.activation_token) {
+      if (sendActivation && email && created.activation_token) {
         activationUrl = `${getAppUrl()}/activate?token=${created.activation_token}`;
         const delivery = await deliverActivationLink({
           userId: created.id,
-          email: created.email,
+          email,
           fullName: created.full_name,
           activationUrl,
           actorId: session.userId,
@@ -531,10 +544,11 @@ export async function adminCreateUserAction(input: {
 
   const admin = createAdminClient();
   const tempPassword = `${crypto.randomUUID()}Aa1!`;
+  const authEmail = email ?? pendingAuthEmail();
 
   const { data: createdAuth, error: createError } =
     await admin.auth.admin.createUser({
-      email,
+      email: authEmail,
       password: tempPassword,
       email_confirm: false,
       user_metadata: {
@@ -553,11 +567,11 @@ export async function adminCreateUserAction(input: {
 
   const userId = createdAuth.user.id;
 
-  // Ensure profile is pending (trigger may race; upsert status)
   await admin
     .from("profiles")
     .update({
       full_name: fullName,
+      email,
       account_status: "pending",
     })
     .eq("id", userId);
@@ -565,7 +579,7 @@ export async function adminCreateUserAction(input: {
   let activationUrl: string | undefined;
   let emailed = false;
 
-  if (sendActivation) {
+  if (sendActivation && email) {
     try {
       activationUrl = await buildSupabaseActivationUrl(email);
       const delivery = await deliverActivationLink({
@@ -585,7 +599,7 @@ export async function adminCreateUserAction(input: {
         error:
           error instanceof Error
             ? error.message
-            : "User created but activation link failed",
+            : "User created but claim link failed",
       };
     }
   }
@@ -610,8 +624,10 @@ export async function adminCreateUserAction(input: {
 
 export async function adminSendActivationLinkAction(input: {
   userId: string;
-  /** When false, only generate/return the direct link (no email). Default true. */
+  /** When false, only generate/return the direct claim link (no email). Default true. */
   sendEmail?: boolean;
+  /** Required when the profile does not already have a real email. */
+  email?: string;
 }): Promise<ActionResult<{ activationUrl: string; emailed: boolean }>> {
   const guard = await enforceMutationGuard({
     action: "admin:user-activation",
@@ -621,8 +637,21 @@ export async function adminSendActivationLinkAction(input: {
   if (!guard.ok) return { success: false, error: guard.error };
 
   const session = await requireAdmin();
-  const userId = input.userId;
-  const shouldEmail = input.sendEmail !== false;
+  const parsed = adminSendActivationSchema.safeParse({
+    userId: input.userId,
+    sendEmail: input.sendEmail !== false,
+    email: input.email ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid activation request",
+    };
+  }
+
+  const userId = parsed.data.userId;
+  const shouldEmail = parsed.data.sendEmail !== false;
+  const providedEmail = normalizeClaimEmail(parsed.data.email);
 
   if (!isSupabaseConfigured() || session.isDemo) {
     const users = await readAdminUsers();
@@ -631,7 +660,30 @@ export async function adminSendActivationLinkAction(input: {
     if (user.account_status === "disabled") {
       return {
         success: false,
-        error: "Enable the user before sharing an activation link",
+        error: "Enable the user before sharing a claim link",
+      };
+    }
+
+    let claimEmail = normalizeClaimEmail(user.email);
+    if (isPlaceholderEmail(claimEmail)) claimEmail = null;
+    if (providedEmail) {
+      try {
+        const updated = await setDemoUserEmail(userId, providedEmail);
+        if (!updated) return { success: false, error: "User not found" };
+        claimEmail = providedEmail;
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error ? error.message : "Could not save email",
+        };
+      }
+    }
+
+    if (!claimEmail) {
+      return {
+        success: false,
+        error: "Email is required to send or copy a claim link",
       };
     }
 
@@ -651,7 +703,7 @@ export async function adminSendActivationLinkAction(input: {
     if (shouldEmail) {
       const delivery = await deliverActivationLink({
         userId,
-        email: user.email,
+        email: claimEmail,
         fullName: user.full_name,
         activationUrl,
         actorId: session.userId,
@@ -665,10 +717,10 @@ export async function adminSendActivationLinkAction(input: {
     await appendActivityLog({
       user_id: userId,
       actor_id: session.userId,
-      action: shouldEmail ? "user.activation_sent" : "user.activation_link",
+      action: shouldEmail ? "user.claim_sent" : "user.claim_link",
       entity_type: "profile",
       entity_id: userId,
-      metadata: { emailed, sendEmail: shouldEmail },
+      metadata: { emailed, sendEmail: shouldEmail, email: claimEmail },
       ip_address: null,
       user_agent: "admin",
     });
@@ -694,12 +746,57 @@ export async function adminSendActivationLinkAction(input: {
   if (profile.account_status === "disabled") {
     return {
       success: false,
-      error: "Enable the user before sharing an activation link",
+      error: "Enable the user before sharing a claim link",
+    };
+  }
+
+  let claimEmail = normalizeClaimEmail(profile.email);
+  if (isPlaceholderEmail(claimEmail)) claimEmail = null;
+
+  if (providedEmail) {
+    const { data: clash } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", providedEmail)
+      .neq("id", userId)
+      .maybeSingle();
+    if (clash) {
+      return {
+        success: false,
+        error: "That email is already linked to another user",
+      };
+    }
+
+    const { error: authEmailError } = await admin.auth.admin.updateUserById(
+      userId,
+      {
+        email: providedEmail,
+        email_confirm: false,
+      }
+    );
+    if (authEmailError) {
+      return { success: false, error: authEmailError.message };
+    }
+
+    const { error: profileEmailError } = await admin
+      .from("profiles")
+      .update({ email: providedEmail })
+      .eq("id", userId);
+    if (profileEmailError) {
+      return { success: false, error: profileEmailError.message };
+    }
+    claimEmail = providedEmail;
+  }
+
+  if (!claimEmail) {
+    return {
+      success: false,
+      error: "Email is required to send or copy a claim link",
     };
   }
 
   try {
-    const activationUrl = await buildSupabaseActivationUrl(profile.email);
+    const activationUrl = await buildSupabaseActivationUrl(claimEmail);
     if (profile.account_status !== "active") {
       await admin
         .from("profiles")
@@ -711,7 +808,7 @@ export async function adminSendActivationLinkAction(input: {
     if (shouldEmail) {
       const delivery = await deliverActivationLink({
         userId,
-        email: profile.email,
+        email: claimEmail,
         fullName: profile.full_name,
         activationUrl,
         actorId: session.userId,
@@ -725,10 +822,10 @@ export async function adminSendActivationLinkAction(input: {
     await appendActivityLog({
       user_id: userId,
       actor_id: session.userId,
-      action: shouldEmail ? "user.activation_sent" : "user.activation_link",
+      action: shouldEmail ? "user.claim_sent" : "user.claim_link",
       entity_type: "profile",
       entity_id: userId,
-      metadata: { emailed, sendEmail: shouldEmail },
+      metadata: { emailed, sendEmail: shouldEmail, email: claimEmail },
       ip_address: null,
       user_agent: "admin",
     });
@@ -744,7 +841,7 @@ export async function adminSendActivationLinkAction(input: {
       error:
         error instanceof Error
           ? error.message
-          : "Failed to generate activation link",
+          : "Failed to generate claim link",
     };
   }
 }

@@ -18,13 +18,13 @@ export function activationEmailHtml(params: {
             <tr>
               <td>
                 <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em;">DaBills</div>
-                <p style="margin:24px 0 8px;font-size:18px;font-weight:600;">Activate your account, ${name}.</p>
+                <p style="margin:24px 0 8px;font-size:18px;font-weight:600;">Claim your account, ${name}.</p>
                 <p style="margin:0 0 24px;color:#9aa7b8;line-height:1.6;">
-                  An admin created a DaBills account for you. Open the link below to set your password and start managing subscriptions.
+                  An admin created a DaBills account for you. Open the link below to set your password — no invite code needed.
                 </p>
                 <p style="margin:28px 0 0;">
                   <a href="${url}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:linear-gradient(90deg,#22d3ee,#14b8a6);color:#041016;text-decoration:none;font-weight:700;">
-                    Activate account
+                    Claim account
                   </a>
                 </p>
                 <p style="margin:20px 0 0;color:#6b7785;font-size:12px;line-height:1.5;">

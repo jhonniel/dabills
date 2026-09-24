@@ -10,8 +10,8 @@ export default async function ActivatePage({
 
   return (
     <AuthShell
-      title="Activate your account"
-      description="Set a password to finish setting up the account an admin created for you."
+      title="Claim your account"
+      description="Set a password to finish setup. This link was sent by an admin — no invite code needed."
     >
       <ActivateAccountForm demoToken={params.token ?? null} />
     </AuthShell>

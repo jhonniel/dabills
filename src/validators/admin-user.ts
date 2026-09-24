@@ -1,13 +1,46 @@
 import { z } from "zod";
 
-export const adminCreateUserSchema = z.object({
-  email: z.string().trim().email("Enter a valid email address"),
-  fullName: z
+function optionalEmailField() {
+  return z
     .string()
     .trim()
-    .min(2, "Name must be at least 2 characters")
-    .max(100, "Name is too long"),
-  sendActivation: z.boolean().optional().default(false),
+    .optional()
+    .default("")
+    .superRefine((value, ctx) => {
+      if (!value) return;
+      if (!z.string().email().safeParse(value).success) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Enter a valid email address",
+        });
+      }
+    });
+}
+
+export const adminCreateUserSchema = z
+  .object({
+    email: optionalEmailField(),
+    fullName: z
+      .string()
+      .trim()
+      .min(2, "Name must be at least 2 characters")
+      .max(100, "Name is too long"),
+    sendActivation: z.boolean().optional().default(false),
+  })
+  .superRefine((data, ctx) => {
+    if (data.sendActivation && !data.email?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["email"],
+        message: "Email is required when sending a claim link",
+      });
+    }
+  });
+
+export const adminSendActivationSchema = z.object({
+  userId: z.string().min(1),
+  sendEmail: z.boolean().optional().default(true),
+  email: optionalEmailField(),
 });
 
 export const activateAccountSchema = z

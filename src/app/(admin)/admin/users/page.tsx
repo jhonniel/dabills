@@ -13,8 +13,8 @@ export default async function AdminUsersPage() {
           Users
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Create accounts, link code names, search with like/has filters, promote
-          admins, or disable access.
+          Create seats without email, link code names, then send a claim link
+          when ready — no invite code for the recipient.
         </p>
       </div>
       <AdminUsersTable users={items} />

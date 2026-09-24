@@ -49,7 +49,7 @@ export async function requireAdmin(): Promise<AdminSession> {
 
   return {
     userId: profile.id,
-    email: profile.email,
+    email: profile.email ?? user.email ?? "",
     role: "admin",
     isDemo: false,
   };

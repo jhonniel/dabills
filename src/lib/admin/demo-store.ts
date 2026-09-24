@@ -225,12 +225,13 @@ export async function writeAdminUsers(users: AdminUser[]) {
 }
 
 export async function createDemoAdminUser(input: {
-  email: string;
+  email?: string | null;
   fullName: string;
 }) {
   const users = await readAdminUsers();
-  const email = input.email.trim().toLowerCase();
-  if (users.some((user) => user.email.toLowerCase() === email)) {
+  const emailRaw = input.email?.trim().toLowerCase() ?? "";
+  const email = emailRaw || null;
+  if (email && users.some((user) => user.email?.toLowerCase() === email)) {
     throw new Error("A user with this email already exists");
   }
 
@@ -256,6 +257,28 @@ export async function createDemoAdminUser(input: {
 
   await writeAdminUsers([created, ...users]);
   return created;
+}
+
+export async function setDemoUserEmail(userId: string, email: string) {
+  const users = await readAdminUsers();
+  const normalized = email.trim().toLowerCase();
+  const clash = users.find(
+    (user) =>
+      user.id !== userId && user.email?.toLowerCase() === normalized
+  );
+  if (clash) {
+    throw new Error("That email is already linked to another user");
+  }
+  const index = users.findIndex((user) => user.id === userId);
+  if (index < 0) return null;
+  const next = [...users];
+  next[index] = withStatus({
+    ...next[index],
+    email: normalized,
+    updated_at: new Date().toISOString(),
+  });
+  await writeAdminUsers(next);
+  return next[index];
 }
 
 export async function setDemoUserCodeName(
