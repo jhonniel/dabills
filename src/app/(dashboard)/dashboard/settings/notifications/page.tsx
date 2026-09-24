@@ -6,13 +6,29 @@ import {
   listEmailLogs,
   listNotifications,
 } from "@/features/notifications/queries";
+import { DEFAULT_NOTIFICATION_PREFERENCES } from "@/validators/notification";
+
+export const dynamic = "force-dynamic";
 
 export default async function NotificationSettingsPage() {
-  const [{ items, unreadCount }, { preferences }, logs] = await Promise.all([
-    listNotifications(),
-    getNotificationPreferences(),
-    listEmailLogs(),
-  ]);
+  let items: Awaited<ReturnType<typeof listNotifications>>["items"] = [];
+  let unreadCount = 0;
+  let preferences = DEFAULT_NOTIFICATION_PREFERENCES;
+  let logs: Awaited<ReturnType<typeof listEmailLogs>> = [];
+
+  try {
+    const [notifications, prefs, emailLogs] = await Promise.all([
+      listNotifications(),
+      getNotificationPreferences(),
+      listEmailLogs(),
+    ]);
+    items = notifications.items;
+    unreadCount = notifications.unreadCount;
+    preferences = prefs.preferences;
+    logs = emailLogs;
+  } catch (error) {
+    console.error("NotificationSettingsPage", error);
+  }
 
   return (
     <div className="space-y-8">

@@ -2,6 +2,8 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { listNotifications } from "@/features/notifications/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {

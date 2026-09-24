@@ -1,6 +1,5 @@
-import { DEMO_CATEGORIES } from "@/lib/billing/demo-data";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { readDemoSubscriptionPlans } from "@/lib/subscriptions/plans-store";
 import type { Category, SubscriptionPlan } from "@/types";
 import type { ShowcasePlan } from "@/types/showcase";
@@ -33,12 +32,14 @@ function toShowcase(
 }
 
 async function categoryMapFromDemo() {
+  const { DEMO_CATEGORIES } = await import("@/lib/billing/demo-data");
   return new Map(DEMO_CATEGORIES.map((c) => [c.id, c.name]));
 }
 
 async function categoryMapFromDb() {
   try {
-    const admin = createAdminClient();
+    const admin = tryCreateAdminClient();
+    if (!admin) return categoryMapFromDemo();
     const { data } = await admin.from("categories").select("id, name");
     return new Map(
       ((data ?? []) as Pick<Category, "id" | "name">[]).map((c) => [
@@ -58,11 +59,15 @@ export async function listPublicShowcasePlans(): Promise<ShowcasePlan[]> {
     const categories = await categoryMapFromDemo();
     return plans
       .filter((p) => p.status === "active")
-      .map((p) => toShowcase(p, p.category_id ? categories.get(p.category_id) ?? null : null));
+      .map((p) =>
+        toShowcase(p, p.category_id ? categories.get(p.category_id) ?? null : null)
+      );
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = tryCreateAdminClient();
+    if (!admin) return [];
+
     const { data, error } = await admin
       .from("subscription_plans")
       .select("*")

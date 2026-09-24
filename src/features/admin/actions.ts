@@ -2025,7 +2025,8 @@ export async function adminUpdateExpenseAction(input: {
 
   const admin = createAdminClient();
   const row = expenseRowFromInput(parsed.data);
-  const { created_by: _createdBy, ...patch } = row;
+  const { created_by: _, ...patch } = row;
+  void _;
   const { data, error } = await admin
     .from("admin_expenses")
     .update(patch)

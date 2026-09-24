@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { EmailLog, Notification } from "@/types";
 import {

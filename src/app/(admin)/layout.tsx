@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/admin/guard";
 import { AdminShell } from "@/components/admin/admin-shell";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {

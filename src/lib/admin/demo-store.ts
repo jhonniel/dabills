@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { DEMO_CATEGORIES } from "@/lib/billing/demo-data";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type {
   AccountStatus,
   ActivityLog,

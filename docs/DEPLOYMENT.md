@@ -5,10 +5,8 @@ Production checklist for deploying DaBills to Vercel + Supabase.
 ## 1. Supabase
 
 1. Create a Supabase project.
-2. In the SQL editor, run migrations in order:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_rls_policies.sql`
-   - `supabase/migrations/003_security_hardening.sql`
+2. In the SQL editor, run migrations in order **001 → 013** (see `docs/DATABASE.md`).
+   Missing `010`–`013` causes admin create/claim and notification preference errors in production.
 3. Create a private Storage bucket named `receipts` (migration 002/003 expect it). Migration `009` also creates a public `payment-qr` bucket for payment-method QR images.
 4. Copy Project URL, anon key, and service role key into Vercel env vars.
 5. Promote at least one user to admin:
