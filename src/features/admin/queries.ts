@@ -493,6 +493,10 @@ export type AssignedSubscription = {
   name: string;
   status: string;
   plan_id: string | null;
+  start_date: string;
+  next_billing_date: string;
+  amount: number;
+  currency: string;
 };
 
 /** Every subscription seat, so an admin can assign more plans to the same user. */
@@ -507,6 +511,10 @@ export async function listAssignedSubscriptions(): Promise<AssignedSubscription[
       name: sub.name,
       status: sub.status,
       plan_id: sub.plan_id ?? null,
+      start_date: sub.start_date,
+      next_billing_date: sub.next_billing_date,
+      amount: Number(sub.amount),
+      currency: sub.currency,
     }));
   }
 
@@ -514,7 +522,9 @@ export async function listAssignedSubscriptions(): Promise<AssignedSubscription[
     const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("subscriptions")
-      .select("id, user_id, name, status, plan_id")
+      .select(
+        "id, user_id, name, status, plan_id, start_date, next_billing_date, amount, currency"
+      )
       .order("name", { ascending: true });
 
     if (error) {

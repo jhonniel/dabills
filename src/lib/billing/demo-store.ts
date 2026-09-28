@@ -91,6 +91,27 @@ export async function createDemoSubscription(
   return created;
 }
 
+export async function updateDemoSubscriptionDates(
+  id: string,
+  dates: { startDate: string; nextBillingDate: string }
+) {
+  const items = await readDemoSubscriptions();
+  const index = items.findIndex((item) => item.id === id);
+  if (index < 0) return null;
+
+  const updated = {
+    ...items[index],
+    start_date: dates.startDate,
+    renewal_date: dates.nextBillingDate,
+    next_billing_date: dates.nextBillingDate,
+    updated_at: new Date().toISOString(),
+  };
+  const next = [...items];
+  next[index] = updated;
+  await writeDemoSubscriptions(next);
+  return updated;
+}
+
 export async function updateDemoSubscription(
   id: string,
   input: SubscriptionInput

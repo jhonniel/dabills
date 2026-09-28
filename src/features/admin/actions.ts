@@ -36,7 +36,7 @@ import { enforceMutationGuard } from "@/lib/security/guards";
 import { serviceRoleOrError } from "@/lib/supabase/admin";
 import { getNextBillingDate } from "@/lib/billing/expenses";
 import { generateBillingCyclesForSubscription } from "@/lib/billing/engine";
-import { createDemoSubscription, readDemoSubscriptions } from "@/lib/billing/demo-store";
+import { createDemoSubscription, readDemoSubscriptions, updateDemoSubscriptionDates } from "@/lib/billing/demo-store";
 import {
   archiveDemoSubscriptionPlan,
   createDemoSubscriptionPlan,
@@ -1874,6 +1874,164 @@ export async function adminAssignUserToPlanAction(input: {
 
   revalidateAdmin();
   return { success: true, data: { id: subscription.id } };
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function adminUpdateAssignedDatesAction(input: {
+  subscriptionId: string;
+  startDate: string;
+  nextBillingDate: string;
+}): Promise<ActionResult> {
+  const guard = await enforceMutationGuard({
+    action: "admin:update-assigned-dates",
+    limit: 40,
+    windowMs: 60_000,
+  });
+  if (!guard.ok) return { success: false, error: guard.error };
+
+  const session = await requireAdmin();
+  const subscriptionId = input.subscriptionId.trim();
+  const startDate = input.startDate.trim();
+  const nextBillingDate = input.nextBillingDate.trim();
+
+  if (!subscriptionId) {
+    return { success: false, error: "Subscription not found" };
+  }
+  if (!DATE_PATTERN.test(startDate)) {
+    return { success: false, error: "Pick a valid start date" };
+  }
+  if (!DATE_PATTERN.test(nextBillingDate)) {
+    return { success: false, error: "Pick a valid next billing date" };
+  }
+  if (nextBillingDate < startDate) {
+    return {
+      success: false,
+      error: "Next billing date must be on or after the start date",
+    };
+  }
+
+  if (!isSupabaseConfigured() || session.isDemo) {
+    const updated = await updateDemoSubscriptionDates(subscriptionId, {
+      startDate,
+      nextBillingDate,
+    });
+    if (!updated) return { success: false, error: "Subscription not found" };
+
+    const { deleteDemoBillsForSubscription, ensureDemoBillsForSubscription } =
+      await import("@/lib/billing/demo-bills");
+    await deleteDemoBillsForSubscription(subscriptionId);
+    await ensureDemoBillsForSubscription(updated);
+
+    await appendActivityLog({
+      user_id: updated.user_id,
+      actor_id: session.userId,
+      action: "subscription.dates_updated",
+      entity_type: "subscription",
+      entity_id: updated.id,
+      metadata: { start_date: startDate, next_billing_date: nextBillingDate },
+      ip_address: null,
+      user_agent: "admin",
+    });
+    revalidateAdmin();
+    revalidatePath("/dashboard");
+    return { success: true };
+  }
+
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
+
+  const { data: existing, error: loadError } = await admin
+    .from("subscriptions")
+    .select("*")
+    .eq("id", subscriptionId)
+    .maybeSingle();
+
+  if (loadError || !existing) {
+    return { success: false, error: loadError?.message ?? "Subscription not found" };
+  }
+
+  const current = existing as Subscription;
+  const { error: updateError } = await admin
+    .from("subscriptions")
+    .update({
+      start_date: startDate,
+      renewal_date: nextBillingDate,
+      next_billing_date: nextBillingDate,
+    })
+    .eq("id", subscriptionId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  const { data: cycles } = await admin
+    .from("billing_cycles")
+    .select("id, status")
+    .eq("subscription_id", subscriptionId);
+
+  const openCycleIds = ((cycles ?? []) as Array<{ id: string; status: string }>)
+    .filter((cycle) => cycle.status !== "paid")
+    .map((cycle) => cycle.id);
+
+  if (openCycleIds.length > 0) {
+    const { data: payments } = await admin
+      .from("payments")
+      .select("billing_cycle_id")
+      .in("billing_cycle_id", openCycleIds);
+
+    const locked = new Set(
+      ((payments ?? []) as Array<{ billing_cycle_id: string }>).map(
+        (payment) => payment.billing_cycle_id
+      )
+    );
+    const removable = openCycleIds.filter((id) => !locked.has(id));
+    if (removable.length > 0) {
+      await admin.from("billing_cycles").delete().in("id", removable);
+    }
+  }
+
+  const { data: remaining } = await admin
+    .from("billing_cycles")
+    .select("*")
+    .eq("user_id", current.user_id);
+
+  const drafts = generateBillingCyclesForSubscription(
+    {
+      ...current,
+      start_date: startDate,
+      renewal_date: nextBillingDate,
+      next_billing_date: nextBillingDate,
+    },
+    (remaining ?? []) as import("@/types").BillingCycle[],
+    { horizonDays: 120, maxCycles: 4 }
+  );
+
+  if (drafts.length > 0) {
+    await admin.from("billing_cycles").insert(drafts);
+  }
+
+  await appendActivityLog({
+    user_id: current.user_id,
+    actor_id: session.userId,
+    action: "subscription.dates_updated",
+    entity_type: "subscription",
+    entity_id: subscriptionId,
+    metadata: {
+      name: current.name,
+      start_date: startDate,
+      next_billing_date: nextBillingDate,
+    },
+    ip_address: null,
+    user_agent: "admin",
+  });
+
+  revalidateAdmin();
+  revalidatePath("/dashboard");
+  return { success: true };
 }
 
 /** @deprecated Prefer adminAssignUserToPlanAction — kept for any legacy callers */

@@ -13,6 +13,8 @@ import {
   adminUpdateUserCodeNameAction,
   adminUpdateUserRoleAction,
 } from "@/features/admin/actions";
+import type { AssignedSubscription } from "@/features/admin/queries";
+import { UserAssignmentsEditor } from "@/components/admin/user-assignment-dates";
 import type { AdminUser } from "@/lib/admin/demo-store";
 import {
   filterAdminUsers,
@@ -119,7 +121,13 @@ function UserActions({
   );
 }
 
-export function AdminUsersTable({ users }: { users: AdminUser[] }) {
+export function AdminUsersTable({
+  users,
+  assigned,
+}: {
+  users: AdminUser[];
+  assigned: AssignedSubscription[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
@@ -135,6 +143,15 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
     () => filterAdminUsers(users, { like: likeQuery }),
     [users, likeQuery]
   );
+  const assignedByUser = useMemo(() => {
+    const grouped = new Map<string, AssignedSubscription[]>();
+    for (const item of assigned) {
+      const list = grouped.get(item.user_id) ?? [];
+      list.push(item);
+      grouped.set(item.user_id, list);
+    }
+    return grouped;
+  }, [assigned]);
 
   const needsEmailForClaim = delivery === "email" || delivery === "link";
   const canCreate =
@@ -510,9 +527,14 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                   />
                 </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                {user.subscriptions_count ?? 0} subscriptions
-              </p>
+              <div className="mt-3">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Assigned subscriptions
+                </p>
+                <UserAssignmentsEditor
+                  items={assignedByUser.get(user.id) ?? []}
+                />
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="outline" className="rounded-lg">
                   <Link href={`/admin/subscriptions/assign?userId=${user.id}`}>
@@ -546,7 +568,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
               <TableHead>Code name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Subscriptions</TableHead>
+              <TableHead>Assigned subscriptions</TableHead>
               <TableHead className="w-80" />
             </TableRow>
           </TableHeader>
@@ -581,7 +603,11 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
                       {status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{user.subscriptions_count ?? 0}</TableCell>
+                  <TableCell className="min-w-80 align-top">
+                    <UserAssignmentsEditor
+                      items={assignedByUser.get(user.id) ?? []}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button
