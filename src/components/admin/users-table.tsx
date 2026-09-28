@@ -13,8 +13,6 @@ import {
   adminUpdateUserCodeNameAction,
   adminUpdateUserRoleAction,
 } from "@/features/admin/actions";
-import type { AssignedSubscription } from "@/features/admin/queries";
-import { UserAssignmentsEditor } from "@/components/admin/user-assignment-dates";
 import type { AdminUser } from "@/lib/admin/demo-store";
 import {
   filterAdminUsers,
@@ -121,13 +119,7 @@ function UserActions({
   );
 }
 
-export function AdminUsersTable({
-  users,
-  assigned,
-}: {
-  users: AdminUser[];
-  assigned: AssignedSubscription[];
-}) {
+export function AdminUsersTable({ users }: { users: AdminUser[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
@@ -143,15 +135,6 @@ export function AdminUsersTable({
     () => filterAdminUsers(users, { like: likeQuery }),
     [users, likeQuery]
   );
-  const assignedByUser = useMemo(() => {
-    const grouped = new Map<string, AssignedSubscription[]>();
-    for (const item of assigned) {
-      const list = grouped.get(item.user_id) ?? [];
-      list.push(item);
-      grouped.set(item.user_id, list);
-    }
-    return grouped;
-  }, [assigned]);
 
   const needsEmailForClaim = delivery === "email" || delivery === "link";
   const canCreate =
@@ -527,14 +510,9 @@ export function AdminUsersTable({
                   />
                 </div>
               </div>
-              <div className="mt-3">
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Assigned subscriptions
-                </p>
-                <UserAssignmentsEditor
-                  items={assignedByUser.get(user.id) ?? []}
-                />
-              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {user.subscriptions_count ?? 0} subscriptions
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="outline" className="rounded-lg">
                   <Link href={`/admin/subscriptions/assign?userId=${user.id}`}>
@@ -568,7 +546,7 @@ export function AdminUsersTable({
               <TableHead>Code name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Assigned subscriptions</TableHead>
+              <TableHead>Subscriptions</TableHead>
               <TableHead className="w-80" />
             </TableRow>
           </TableHeader>
@@ -603,11 +581,7 @@ export function AdminUsersTable({
                       {status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="min-w-80 align-top">
-                    <UserAssignmentsEditor
-                      items={assignedByUser.get(user.id) ?? []}
-                    />
-                  </TableCell>
+                  <TableCell>{user.subscriptions_count ?? 0}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button

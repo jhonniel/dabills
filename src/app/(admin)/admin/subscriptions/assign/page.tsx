@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AdminAssignSubscriptionForm } from "@/components/admin/assign-subscription-form";
+import { AssignedUserTiles } from "@/components/admin/assigned-user-tiles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   listAdminUsers,
@@ -26,7 +27,7 @@ export default async function AdminAssignSubscriptionPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-8">
       <div>
         <Link
           href="/admin/subscriptions/plans"
@@ -58,6 +59,8 @@ export default async function AdminAssignSubscriptionPage({
           />
         </CardContent>
       </Card>
+
+      <AssignedUserTiles users={users} assigned={assigned} />
     </div>
   );
 }

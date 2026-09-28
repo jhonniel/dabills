@@ -8,7 +8,6 @@ import { Check, ChevronsUpDown, Search } from "lucide-react";
 
 import { adminAssignUserToPlanAction } from "@/features/admin/actions";
 import type { AssignedSubscription } from "@/features/admin/queries";
-import { UserAssignmentsEditor } from "@/components/admin/user-assignment-dates";
 import type { AdminUser } from "@/lib/admin/demo-store";
 import { displayUserEmail } from "@/lib/admin/pending-email";
 import { filterAdminUsers } from "@/lib/admin/user-search";
@@ -313,9 +312,9 @@ export function AdminAssignSubscriptionForm({
                   Already assigned ({currentAssignments.length}). Assigning
                   another plan adds to this list.
                 </p>
-                <div className="mt-2">
-                  <UserAssignmentsEditor items={currentAssignments} />
-                </div>
+                <p className="mt-2 text-foreground">
+                  {currentAssignments.map((item) => item.name).join(", ")}
+                </p>
               </>
             )}
           </div>
