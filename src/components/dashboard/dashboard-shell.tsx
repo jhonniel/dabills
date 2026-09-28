@@ -25,26 +25,29 @@ import type { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { href: "/dashboard/billing", label: "Billing", icon: Receipt },
-  { href: "/dashboard/payments", label: "Payments", icon: History },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard, adminOnly: false },
+  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard, adminOnly: false },
+  { href: "/dashboard/billing", label: "Billing", icon: Receipt, adminOnly: false },
+  { href: "/dashboard/payments", label: "Payments", icon: History, adminOnly: false },
   {
     href: "/dashboard/settings/notifications",
     label: "Notifications",
     icon: Settings,
+    adminOnly: false,
   },
-  { href: "/admin", label: "Admin", icon: Shield },
+  { href: "/admin", label: "Admin", icon: Shield, adminOnly: true },
 ];
 
 export function DashboardShell({
   children,
   isDemo = false,
+  isAdmin = false,
   notifications = [],
   unreadCount = 0,
 }: {
   children: React.ReactNode;
   isDemo?: boolean;
+  isAdmin?: boolean;
   notifications?: Notification[];
   unreadCount?: number;
 }) {
@@ -53,7 +56,9 @@ export function DashboardShell({
 
   const Nav = ({ onNavigate }: { onNavigate?: () => void }) => (
     <nav className="flex flex-col gap-0.5">
-      {navItems.map((item) => {
+      {navItems
+        .filter((item) => isAdmin || !item.adminOnly)
+        .map((item) => {
         const active =
           item.href === "/dashboard"
             ? pathname === "/dashboard"

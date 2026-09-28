@@ -1,4 +1,5 @@
 import { isSupabaseConfigured } from "@/lib/env";
+import { isCurrentUserAdmin } from "@/lib/admin/guard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { listNotifications } from "@/features/notifications/queries";
 
@@ -23,6 +24,7 @@ export default async function DashboardLayout({
   return (
     <DashboardShell
       isDemo={!isSupabaseConfigured()}
+      isAdmin={await isCurrentUserAdmin()}
       notifications={items}
       unreadCount={unreadCount}
     >

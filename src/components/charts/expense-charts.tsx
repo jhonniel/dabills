@@ -47,8 +47,8 @@ export function MonthlyExpenseChart({
 
   return (
     <Panel
-      title="Monthly expenses"
-      description="Normalized recurring spend over the last 6 months"
+      title="Monthly spend"
+      description="Normalized recurring cost over the last 6 months"
     >
       {!hasSpend ? (
         <div className="flex h-64 flex-col items-center justify-center text-center">
@@ -97,7 +97,7 @@ export function MonthlyExpenseChart({
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: 12,
                 }}
-                formatter={(value) => [formatMoney(Number(value ?? 0)), "Spend"]}
+                formatter={(value) => [formatMoney(Number(value ?? 0)), "Monthly"]}
               />
               <Area
                 type="monotone"

@@ -62,7 +62,7 @@ export function SubscriptionsTable({
                     ),
                     item.currency
                   )}
-                  /mo · next {item.next_billing_date}
+                  /mo · started {item.start_date}
                 </p>
               </div>
               <StatusBadge status={item.status} />
@@ -79,7 +79,7 @@ export function SubscriptionsTable({
               <TableHead>Category</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Monthly</TableHead>
-              <TableHead>Next billing</TableHead>
+              <TableHead>Start date</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -119,7 +119,7 @@ export function SubscriptionsTable({
                     item.currency
                   )}
                 </TableCell>
-                <TableCell>{item.next_billing_date}</TableCell>
+                <TableCell>{item.start_date}</TableCell>
                 <TableCell>
                   <StatusBadge status={item.status} />
                 </TableCell>

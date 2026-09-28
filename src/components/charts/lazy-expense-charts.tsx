@@ -33,8 +33,8 @@ export const MonthlyExpenseChart = dynamic(
     ssr: false,
     loading: () => (
       <ChartSkeleton
-        title="Monthly expenses"
-        hint="Normalized recurring spend over the last 6 months"
+        title="Monthly spend"
+        hint="Normalized recurring cost over the last 6 months"
       />
     ),
   }
