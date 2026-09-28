@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 
 import { adminAssignUserToPlanAction } from "@/features/admin/actions";
+import type { AssignedSubscription } from "@/features/admin/queries";
 import type { AdminUser } from "@/lib/admin/demo-store";
 import { displayUserEmail } from "@/lib/admin/pending-email";
 import { filterAdminUsers } from "@/lib/admin/user-search";
@@ -156,11 +157,13 @@ function UserSearchSelect({
 export function AdminAssignSubscriptionForm({
   users,
   plans,
+  assigned,
   defaultUserId,
   defaultPlanId,
 }: {
   users: AdminUser[];
   plans: SubscriptionPlanWithSeats[];
+  assigned: AssignedSubscription[];
   defaultUserId?: string;
   defaultPlanId?: string;
 }) {
@@ -177,6 +180,10 @@ export function AdminAssignSubscriptionForm({
       : ""
   );
   const selected = activePlans.find((p) => p.id === planId);
+  const currentAssignments = useMemo(
+    () => assigned.filter((item) => item.user_id === userId),
+    [assigned, userId]
+  );
   const [startDate, setStartDate] = useState(todayIso);
   const [nextBillingDate, setNextBillingDate] = useState(() =>
     defaultNextBill(
@@ -237,8 +244,8 @@ export function AdminAssignSubscriptionForm({
         toast.error(result.error);
         return;
       }
-      toast.success("Seat assigned");
-      router.push("/admin/subscriptions/plans");
+      toast.success("Subscription assigned. You can assign another plan to this user.");
+      setPlanId("");
       router.refresh();
     });
   };
@@ -295,6 +302,31 @@ export function AdminAssignSubscriptionForm({
           value={userId}
           onChange={setUserId}
         />
+        {userId && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-xs text-muted-foreground">
+            {currentAssignments.length === 0 ? (
+              <p>No subscriptions yet. This assignment will be their first.</p>
+            ) : (
+              <>
+                <p>
+                  Already assigned ({currentAssignments.length}). Assigning
+                  another plan adds to this list.
+                </p>
+                <ul className="mt-1.5 space-y-0.5 text-foreground">
+                  {currentAssignments.map((item) => (
+                    <li key={item.id}>
+                      {item.name}
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {item.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -334,7 +366,7 @@ export function AdminAssignSubscriptionForm({
         }
         className="rounded-xl bg-cyan-400 font-semibold text-black hover:bg-cyan-300"
       >
-        {pending ? "Assigning..." : "Assign seat"}
+        {pending ? "Assigning..." : "Assign subscription"}
       </Button>
     </form>
   );

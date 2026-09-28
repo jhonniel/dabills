@@ -556,7 +556,7 @@ export function AdminSubscriptionPlansPanel({
                           <a
                             href={`/admin/subscriptions/assign?planId=${plan.id}`}
                           >
-                            Assign seat
+                            Assign subscription
                           </a>
                         </Button>
                       )}

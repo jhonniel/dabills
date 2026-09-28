@@ -4,6 +4,7 @@ import { AdminAssignSubscriptionForm } from "@/components/admin/assign-subscript
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   listAdminUsers,
+  listAssignedSubscriptions,
   listSubscriptionPlans,
 } from "@/features/admin/queries";
 
@@ -18,9 +19,10 @@ export default async function AdminAssignSubscriptionPage({
   const defaultPlanId =
     typeof params.planId === "string" ? params.planId : undefined;
 
-  const [{ items: users }, { items: plans }] = await Promise.all([
+  const [{ items: users }, { items: plans }, assigned] = await Promise.all([
     listAdminUsers(),
     listSubscriptionPlans(),
+    listAssignedSubscriptions(),
   ]);
 
   return (
@@ -33,11 +35,12 @@ export default async function AdminAssignSubscriptionPage({
           ← Back to plans
         </Link>
         <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-          Assign seat
+          Assign subscriptions
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Assign a user to a shared plan, set when it starts, and when their bill
-          will recur. Blocked when the plan is at max capacity.
+          A user can hold many subscriptions. Assign each plan separately. The
+          same plan cannot be assigned twice. Users can view what you assign;
+          they cannot add or change it.
         </p>
       </div>
 
@@ -49,6 +52,7 @@ export default async function AdminAssignSubscriptionPage({
           <AdminAssignSubscriptionForm
             users={users}
             plans={plans}
+            assigned={assigned}
             defaultUserId={defaultUserId}
             defaultPlanId={defaultPlanId}
           />

@@ -7,11 +7,9 @@ import {
   History,
   LayoutDashboard,
   LogOut,
-  Menu,
   Receipt,
   Settings,
   Shield,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -19,6 +17,7 @@ import { logoutAction } from "@/features/auth/actions";
 import { AppWordmark } from "@/components/brand/app-wordmark";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { MobileMenuButton, MobileMenuPanel } from "@/components/layout/mobile-menu";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -96,20 +95,10 @@ export function DashboardShell({
           <div className="flex shrink-0 items-center gap-1">
             <NotificationBell items={notifications} unreadCount={unreadCount} />
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11"
-              aria-label={open ? "Close menu" : "Open menu"}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-            >
-              {open ? <X className="size-5" /> : <Menu className="size-5" />}
-            </Button>
+            <MobileMenuButton open={open} onClick={() => setOpen((v) => !v)} />
           </div>
         </div>
-        {open && (
-          <div className="safe-px max-h-[min(70dvh,calc(100dvh-3.5rem))] overflow-y-auto overscroll-contain border-t border-white/[0.06] py-4 pb-drawer-nav">
+        <MobileMenuPanel open={open}>
             <Nav onNavigate={() => setOpen(false)} />
             <Separator className="my-4 bg-white/[0.06]" />
             <form action={logoutAction}>
@@ -123,8 +112,7 @@ export function DashboardShell({
                 Sign out
               </Button>
             </form>
-          </div>
-        )}
+        </MobileMenuPanel>
       </header>
 
       <div className="mx-auto flex max-w-7xl gap-0 px-0 pb-nav lg:gap-0 lg:px-0 lg:pb-0">
@@ -180,7 +168,7 @@ export function DashboardShell({
         </div>
       </div>
 
-      {!open && <MobileBottomNav onMore={() => setOpen(true)} />}
+      <MobileBottomNav hidden={open} onMore={() => setOpen(true)} />
     </div>
   );
 }

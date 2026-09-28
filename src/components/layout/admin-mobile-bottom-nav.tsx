@@ -19,15 +19,20 @@ const tabs = [
 
 export function AdminMobileBottomNav({
   onMore,
+  hidden = false,
 }: {
   onMore?: () => void;
+  hidden?: boolean;
 }) {
   const pathname = usePathname();
 
   return (
     <nav
       aria-label="Admin primary"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl transition-transform duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:hidden",
+        hidden && "pointer-events-none translate-y-full"
+      )}
     >
       <div className="safe-px mx-auto flex h-14 max-w-lg items-stretch justify-around">
         {tabs.map((tab) => {

@@ -486,3 +486,45 @@ export async function getAdminAnalytics() {
       .sort((a, b) => b.total - a.total),
   };
 }
+
+export type AssignedSubscription = {
+  id: string;
+  user_id: string;
+  name: string;
+  status: string;
+  plan_id: string | null;
+};
+
+/** Every subscription seat, so an admin can assign more plans to the same user. */
+export async function listAssignedSubscriptions(): Promise<AssignedSubscription[]> {
+  await requireAdmin();
+
+  if (!isSupabaseConfigured()) {
+    const subs = await readDemoSubscriptions();
+    return subs.map((sub) => ({
+      id: sub.id,
+      user_id: sub.user_id,
+      name: sub.name,
+      status: sub.status,
+      plan_id: sub.plan_id ?? null,
+    }));
+  }
+
+  try {
+    const admin = await getAdminDataClient();
+    const { data, error } = await admin
+      .from("subscriptions")
+      .select("id, user_id, name, status, plan_id")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.warn("listAssignedSubscriptions", error.message);
+      return [];
+    }
+
+    return (data ?? []) as AssignedSubscription[];
+  } catch (error) {
+    console.warn("listAssignedSubscriptions", error);
+    return [];
+  }
+}

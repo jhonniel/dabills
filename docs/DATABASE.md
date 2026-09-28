@@ -17,6 +17,7 @@ Apply SQL files in `supabase/migrations/` **in numeric order** against your Supa
 | `011_profile_code_name.sql` | `profiles.code_name` admin-linked alias + unique index |
 | `012_optional_profile_email.sql` | Allow `profiles.email` null until a claim link is sent |
 | `013_notification_preferences.sql` | `profiles.notification_preferences` jsonb (shared across devices) |
+| `014_subscriptions_view_only.sql` | Users can read their subscriptions; only admins insert, update, or delete them |
 
 ## Seed accounts (local)
 
@@ -33,7 +34,7 @@ Creates / resets:
 
 Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
 
-**Important:** Apply migrations **001 → 013 in order**. Skipping `010` (account_status) while applying `011` (code_name) breaks admin user create/claim updates. If create account shows an unexpected error page, run `010` and `012` in the Supabase SQL editor, then retry. Apply `013` so notification preferences sync across admins/devices (not browser cookies).
+**Important:** Apply migrations **001 → 014 in order**. Skipping `010` (account_status) while applying `011` (code_name) breaks admin user create/claim updates. If create account shows an unexpected error page, run `010` and `012` in the Supabase SQL editor, then retry. Apply `013` so notification preferences sync across admins/devices (not browser cookies).
 
 When Supabase env vars are set, **all app data is read/written from the database**. Cookie-backed demo stores are only used when Supabase is not configured (local preview without credentials).
 
@@ -48,9 +49,9 @@ When Supabase env vars are set, **all app data is read/written from the database
 ## Shared subscription plans
 
 1. Admin creates a plan at `/admin/subscriptions/plans` (name, amount, billing cycle, **max capacity**).
-2. Admin assigns a user seat at `/admin/subscriptions/assign` (pick plan + user).
+2. Admin assigns subscriptions at `/admin/subscriptions/assign`. One user can hold many plans. The same plan cannot be assigned twice while it is active or paused.
 3. Assignment is rejected when active/paused seats `>= max_capacity`.
-4. Each seat creates a normal `subscriptions` row (with `plan_id`) and billing cycles for that user.
+4. Each assignment creates a `subscriptions` row (with `plan_id`) and billing cycles for that user. The user can view those subscriptions and pay bills. Only an admin can assign, edit, or remove them.
 
 ## Admin expenses
 

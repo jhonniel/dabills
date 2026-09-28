@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
 
 import { StatusBadge } from "@/components/subscriptions/status-badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -13,7 +11,6 @@ import {
 } from "@/components/ui/card";
 import { getSubscription } from "@/features/subscriptions/queries";
 import { formatMoney, toMonthlyAmount, toYearlyAmount } from "@/lib/billing/expenses";
-import { DeleteSubscriptionButton } from "@/components/subscriptions/delete-button";
 
 export default async function SubscriptionDetailPage({
   params,
@@ -51,30 +48,15 @@ export default async function SubscriptionDetailPage({
               {item.name}
             </h1>
             <StatusBadge status={item.status} />
-            {item.plan_id && (
-              <span className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-medium text-cyan-200">
-                Admin assigned
-              </span>
-            )}
           </div>
           <p className="mt-2 text-muted-foreground">
             {item.category?.name ?? "Uncategorized"} ·{" "}
             <span className="capitalize">
               {item.billing_frequency.replace("_", " ")}
             </span>
+            . Assigned by an admin. You can view it and pay its bills.
           </p>
         </div>
-        {!item.plan_id && (
-          <div className="flex gap-2">
-            <Button asChild variant="outline" className="rounded-xl">
-              <Link href={`/dashboard/subscriptions/${item.id}/edit`}>
-                <Pencil className="size-4" />
-                Edit
-              </Link>
-            </Button>
-            <DeleteSubscriptionButton id={item.id} />
-          </div>
-        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

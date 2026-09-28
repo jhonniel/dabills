@@ -1712,7 +1712,10 @@ export async function adminAssignUserToPlanAction(input: {
       };
     }
     if (seats.some((s) => s.user_id === input.userId)) {
-      return { success: false, error: "User already has a seat on this plan" };
+      return {
+        success: false,
+        error: "This user already has this subscription. Assign a different plan.",
+      };
     }
 
     const created = await createDemoSubscription(
@@ -1801,7 +1804,10 @@ export async function adminAssignUserToPlanAction(input: {
     .maybeSingle();
 
   if (existingSeat) {
-    return { success: false, error: "User already has a seat on this plan" };
+    return {
+      success: false,
+      error: "This user already has this subscription. Assign a different plan.",
+    };
   }
 
   const { data, error } = await admin

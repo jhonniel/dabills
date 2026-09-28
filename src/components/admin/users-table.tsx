@@ -516,7 +516,7 @@ export function AdminUsersTable({ users }: { users: AdminUser[] }) {
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="outline" className="rounded-lg">
                   <Link href={`/admin/subscriptions/assign?userId=${user.id}`}>
-                    Assign seat
+                    Assign subscription
                   </Link>
                 </Button>
                 <UserActions

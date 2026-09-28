@@ -17,7 +17,7 @@ export default async function AdminSubscriptionPlansPage() {
           href="/admin/subscriptions/assign"
           className="text-sm text-zinc-500 hover:text-cyan-300"
         >
-          Assign seats →
+          Assign subscriptions →
         </Link>
         <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
           Subscription plans

@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
-  Menu,
   Receipt,
   ScrollText,
   Settings2,
@@ -17,13 +16,13 @@ import {
   UserPlus,
   Users,
   Wallet,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 
 import { logoutAction } from "@/features/auth/actions";
 import { AppWordmark } from "@/components/brand/app-wordmark";
 import { AdminMobileBottomNav } from "@/components/layout/admin-mobile-bottom-nav";
+import { MobileMenuButton, MobileMenuPanel } from "@/components/layout/mobile-menu";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -37,7 +36,7 @@ const navItems = [
   { href: "/admin/payment-setup", label: "Payment setup", icon: Settings2 },
   { href: "/admin/expenses", label: "Expenses", icon: Receipt },
   { href: "/admin/subscriptions/plans", label: "Subscription plans", icon: CreditCard },
-  { href: "/admin/subscriptions/assign", label: "Assign seat", icon: UserPlus },
+  { href: "/admin/subscriptions/assign", label: "Assign subscriptions", icon: UserPlus },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/logs", label: "Activity logs", icon: ScrollText },
@@ -95,20 +94,10 @@ export function AdminShell({
           </Link>
           <div className="flex shrink-0 items-center gap-1">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-11"
-              onClick={() => setOpen((v) => !v)}
-              aria-label={open ? "Close menu" : "Open menu"}
-              aria-expanded={open}
-            >
-              {open ? <X className="size-5" /> : <Menu className="size-5" />}
-            </Button>
+            <MobileMenuButton open={open} onClick={() => setOpen((v) => !v)} />
           </div>
         </div>
-        {open && (
-          <div className="safe-px max-h-[min(70dvh,calc(100dvh-3.5rem))] overflow-y-auto overscroll-contain border-t border-white/[0.06] py-4 pb-drawer-nav">
+        <MobileMenuPanel open={open}>
             <p className="mb-3 truncate px-1 text-xs text-zinc-500">{adminEmail}</p>
             <Nav onNavigate={() => setOpen(false)} />
             <Separator className="my-4 bg-white/[0.06]" />
@@ -135,8 +124,7 @@ export function AdminShell({
                 Demo admin mode — tools work without Supabase auth.
               </p>
             )}
-          </div>
-        )}
+        </MobileMenuPanel>
       </header>
 
       <div className="mx-auto flex max-w-7xl gap-0 px-0 pb-nav lg:pb-0">
@@ -193,7 +181,7 @@ export function AdminShell({
         </main>
       </div>
 
-      {!open && <AdminMobileBottomNav onMore={() => setOpen(true)} />}
+      <AdminMobileBottomNav hidden={open} onMore={() => setOpen(true)} />
     </div>
   );
 }
