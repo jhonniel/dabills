@@ -10,7 +10,8 @@ import { readDemoBillingCycles } from "@/lib/billing/demo-bills";
 import { readDemoEmailLogs } from "@/lib/notifications/demo-store";
 import { listAllPaymentsForAdmin } from "@/features/payments/queries";
 import { isSupabaseConfigured } from "@/lib/env";
-import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { readDemoSubscriptionPlans } from "@/lib/subscriptions/plans-store";
 import { readDemoAdminExpenses } from "@/lib/expenses/expenses-store";
 import {
@@ -31,6 +32,14 @@ import type {
   SubscriptionPlan,
   SubscriptionPlanWithSeats,
 } from "@/types";
+
+/**
+ * Prefer service-role for admin reads; fall back to the signed-in admin
+ * session (RLS allows is_admin() to read all profiles / related rows).
+ */
+async function getAdminDataClient() {
+  return tryCreateAdminClient() ?? (await createClient());
+}
 
 async function listDemoPlansWithSeats() {
   const [plans, subs] = await Promise.all([
@@ -59,8 +68,7 @@ type SubWithCategory = Subscription & {
 
 async function listLiveSubscriptions() {
   try {
-    const admin = tryCreateAdminClient();
-    if (!admin) return [] as SubWithCategory[];
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("subscriptions")
       .select("*, category:categories(id, slug, name, icon, color)")
@@ -78,8 +86,7 @@ async function listLiveSubscriptions() {
 
 async function listLiveBillingCycles() {
   try {
-    const admin = tryCreateAdminClient();
-    if (!admin) return [] as { id: string; status: string }[];
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("billing_cycles")
       .select("id, status")
@@ -106,7 +113,7 @@ export async function listSubscriptionPlans(): Promise<{
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await getAdminDataClient();
     const { data: plans, error } = await admin
       .from("subscription_plans")
       .select("*")
@@ -227,20 +234,38 @@ export async function listAdminUsers() {
   }
 
   try {
-    const admin = tryCreateAdminClient();
-    if (!admin) {
-      console.warn("listAdminUsers: missing service role key");
-      return { items: [], isDemo: false as const };
-    }
-    const [{ data, error }, { data: seats }] = await Promise.all([
-      admin.from("profiles").select("*").order("created_at", { ascending: false }),
-      admin.from("subscriptions").select("user_id").neq("status", "cancelled"),
-    ]);
+    const admin = await getAdminDataClient();
+    const profileColumns =
+      "id, email, full_name, code_name, avatar_url, role, account_status, plan_id, timezone, notification_email, notification_in_app, created_at, updated_at";
+    let { data, error } = await admin
+      .from("profiles")
+      .select(profileColumns)
+      .order("created_at", { ascending: false });
 
-    if (error || !data) {
-      console.warn("listAdminUsers", error?.message);
+    if (error && /code_name|account_status|schema cache/i.test(error.message)) {
+      const fallback = await admin
+        .from("profiles")
+        .select(
+          "id, email, full_name, avatar_url, role, timezone, notification_email, notification_in_app, created_at, updated_at"
+        )
+        .order("created_at", { ascending: false });
+      data = fallback.data as typeof data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.warn("listAdminUsers", error.message);
       return { items: [], isDemo: false as const };
     }
+
+    if (!data) {
+      return { items: [], isDemo: false as const };
+    }
+
+    const { data: seats } = await admin
+      .from("subscriptions")
+      .select("user_id")
+      .neq("status", "cancelled");
 
     const seatCounts = new Map<string, number>();
     for (const row of seats ?? []) {
@@ -276,7 +301,7 @@ export async function listAdminInvites() {
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("invite_codes")
       .select("*")
@@ -302,7 +327,7 @@ export async function listAdminCategories() {
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("categories")
       .select("*")
@@ -328,7 +353,7 @@ export async function listAdminActivity() {
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("activity_logs")
       .select("*")
@@ -355,7 +380,7 @@ export async function listAdminEmails() {
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("email_logs")
       .select("*")
@@ -385,7 +410,7 @@ export async function listAdminExpenses(): Promise<{
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await getAdminDataClient();
     const { data, error } = await admin
       .from("admin_expenses")
       .select("*")

@@ -46,7 +46,7 @@ local `.env.local` — `.env.local` is never deployed.
 | `NEXT_PUBLIC_APP_URL` | Yes | Production URL, e.g. `https://your-app.vercel.app` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase → Project Settings → API → Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase → API → `anon` `public` key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase → API → `service_role` (server-only) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase → API → `service_role` (server-only). Required for admin writes/seeds; admin reads fall back to the signed-in admin session if missing. |
 | `CRON_SECRET` | Yes (prod) | Strong random secret for cron routes |
 | `RESEND_API_KEY` | Optional | Without it, emails mock-log |
 | `RESEND_FROM_EMAIL` | Optional | Verified sender domain in Resend |

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { activeOcrProviderLabel, isLiveOcrEnabled } from "@/services/ocr/config";
 
 export async function GET() {
@@ -10,12 +11,15 @@ export async function GET() {
       !process.env.RESEND_API_KEY.includes("xxxxxxxx")
   );
 
+  const serviceRoleConfigured = Boolean(tryCreateAdminClient());
+
   return NextResponse.json({
     status: "ok",
     service: "dabills",
     phase: 7,
     checks: {
       supabaseConfigured: isSupabaseConfigured(),
+      serviceRoleConfigured,
       emailConfigured,
       ocrProvider: activeOcrProviderLabel(),
       ocrLive: isLiveOcrEnabled(),
