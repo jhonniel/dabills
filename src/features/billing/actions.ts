@@ -198,8 +198,12 @@ export async function getScheduledRemindersAction() {
   }
 
   try {
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    const admin = createAdminClient();
+    const { serviceRoleOrError } = await import("@/lib/supabase/admin");
+    const serviceRole = serviceRoleOrError();
+    if (!serviceRole.ok) {
+      return { success: false as const, error: serviceRole.error };
+    }
+    const admin = serviceRole.client;
     const [{ data: cycles }, { data: subscriptions }] = await Promise.all([
       admin.from("billing_cycles").select("*"),
       admin

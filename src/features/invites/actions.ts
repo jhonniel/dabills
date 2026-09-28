@@ -2,7 +2,7 @@
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { enforceMutationGuard } from "@/lib/security/guards";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { serviceRoleOrError } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { InviteCode, Profile } from "@/types";
 import { validateInviteSchema } from "@/validators/invite";
@@ -37,7 +37,11 @@ export async function validateInviteCodeAction(
     return { valid: false, error: "Invite code is invalid." };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { valid: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("invite_codes")
     .select("id, is_active, expires_at, max_uses, uses_count")
@@ -102,7 +106,11 @@ export async function createInviteCodeAction(input: {
     return { success: false as const, error: "Admin access required." };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false as const, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("invite_codes")
     .insert({

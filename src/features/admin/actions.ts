@@ -33,7 +33,7 @@ import {
 } from "@/lib/payments/payment-methods-store";
 import { storePaymentQr } from "@/lib/payments/storage";
 import { enforceMutationGuard } from "@/lib/security/guards";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { serviceRoleOrError } from "@/lib/supabase/admin";
 import { getNextBillingDate } from "@/lib/billing/expenses";
 import { generateBillingCyclesForSubscription } from "@/lib/billing/engine";
 import { createDemoSubscription, readDemoSubscriptions } from "@/lib/billing/demo-store";
@@ -165,7 +165,11 @@ export async function adminCreateInviteAction(input: {
     return { success: true, data: created };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("invite_codes")
     .insert({
@@ -213,7 +217,11 @@ export async function adminToggleInviteAction(
     );
     await writeAdminInvites(next);
   } else {
-    const admin = createAdminClient();
+    const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
     const { error } = await admin
       .from("invite_codes")
       .update({ is_active: isActive })
@@ -258,7 +266,11 @@ export async function adminUpdateUserRoleAction(
     );
     await writeAdminUsers(next);
   } else {
-    const admin = createAdminClient();
+    const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
     const { error } = await admin
       .from("profiles")
       .update({ role })
@@ -310,7 +322,11 @@ export async function adminUpdateUserCodeNameAction(
       };
     }
   } else {
-    const admin = createAdminClient();
+    const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
     if (normalized) {
       const { data: clash } = await admin
         .from("profiles")
@@ -377,7 +393,11 @@ export async function adminToggleUserStatusAction(
     const updated = await setDemoUserAccountStatus(userId, status);
     if (!updated) return { success: false, error: "User not found" };
   } else {
-    const admin = createAdminClient();
+    const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
     const { error } = await updateProfileCompat(admin, userId, {
       account_status: status,
     });
@@ -460,7 +480,11 @@ async function deliverActivationLink(input: {
 }
 
 async function buildSupabaseActivationUrl(email: string) {
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    throw new Error(serviceRole.error);
+  }
+  const admin = serviceRole.client;
   const redirectTo = `${getAppUrl()}/auth/callback?next=${encodeURIComponent("/activate")}`;
   const { data, error } = await admin.auth.admin.generateLink({
     type: "invite",
@@ -552,7 +576,11 @@ export async function adminCreateUserAction(input: {
     }
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const tempPassword = `${crypto.randomUUID()}Aa1!`;
   const authEmail = email ?? pendingAuthEmail();
 
@@ -756,7 +784,11 @@ export async function adminSendActivationLinkAction(input: {
     };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   type ClaimProfile = {
     id: string;
     email: string | null;
@@ -913,7 +945,11 @@ export async function adminUpdateCategoryAction(input: {
     );
     await writeAdminCategories(next);
   } else {
-    const admin = createAdminClient();
+    const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
     const { error } = await admin
       .from("categories")
       .update({ name: input.name, color: input.color })
@@ -975,7 +1011,11 @@ export async function adminCreateCategoryAction(input: {
     return { success: true, data: created };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { count } = await admin
     .from("categories")
     .select("id", { count: "exact", head: true });
@@ -1125,7 +1165,11 @@ export async function adminCreatePaymentMethodAction(input: {
     return { success: true, data: created };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("payment_methods")
     .insert({
@@ -1230,7 +1274,11 @@ export async function adminUpdatePaymentMethodAction(input: {
   if (input.isActive !== undefined) patch.is_active = input.isActive;
   if (qrImageUrl !== undefined) patch.qr_image_url = qrImageUrl;
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { error } = await admin
     .from("payment_methods")
     .update(patch)
@@ -1261,7 +1309,11 @@ export async function adminDeletePaymentMethodAction(
     return { success: true };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { error } = await admin.from("payment_methods").delete().eq("id", id);
   if (error) return { success: false, error: error.message };
 
@@ -1307,7 +1359,11 @@ export async function adminCreateSubscriptionPlanAction(
     return { success: true, data: { id: created.id } };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("subscription_plans")
     .insert({
@@ -1400,7 +1456,11 @@ export async function adminUpdateSubscriptionPlanAction(input: {
     return { success: true };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data: existingPlan } = await admin
     .from("subscription_plans")
     .select("amount")
@@ -1506,7 +1566,11 @@ export async function adminArchiveSubscriptionPlanAction(
     return { success: true };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { error } = await admin
     .from("subscription_plans")
     .update({ status: "archived" })
@@ -1559,7 +1623,11 @@ export async function adminDeleteSubscriptionPlanAction(
     return { success: true };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { count: seatsUsed, error: seatError } = await admin
     .from("subscriptions")
     .select("id", { count: "exact", head: true })
@@ -1687,7 +1755,11 @@ export async function adminAssignUserToPlanAction(input: {
     return { success: true, data: { id: created.id } };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data: planRow, error: planError } = await admin
     .from("subscription_plans")
     .select("*")
@@ -1845,7 +1917,11 @@ export async function adminAssignSubscriptionAction(input: {
     parsed.data.customIntervalDays
   );
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("subscriptions")
     .insert({
@@ -1967,7 +2043,11 @@ export async function adminCreateExpenseAction(
 
   await clearDemoExpenseCookies();
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const row = expenseRowFromInput(parsed.data, session.userId);
   const { data, error } = await admin
     .from("admin_expenses")
@@ -2023,7 +2103,11 @@ export async function adminUpdateExpenseAction(input: {
     };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const row = expenseRowFromInput(parsed.data);
   const { created_by: _, ...patch } = row;
   void _;
@@ -2077,7 +2161,11 @@ export async function adminArchiveExpenseAction(
     };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   const { data, error } = await admin
     .from("admin_expenses")
     .update({ status: "archived" })

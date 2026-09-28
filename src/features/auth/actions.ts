@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { isSupabaseConfigured, supabaseMissingMessage } from "@/lib/env";
 import { enforceMutationGuard } from "@/lib/security/guards";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { serviceRoleOrError } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   loginSchema,
@@ -84,7 +84,11 @@ export async function registerAction(
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
 
   const { data: isValid, error: inviteError } = await admin.rpc(
     "validate_and_consume_invite",
@@ -190,7 +194,11 @@ export async function activateAccountAction(input: ActivateAccountInput & {
     return { success: false, error: passwordError.message };
   }
 
-  const admin = createAdminClient();
+  const serviceRole = serviceRoleOrError();
+  if (!serviceRole.ok) {
+    return { success: false, error: serviceRole.error };
+  }
+  const admin = serviceRole.client;
   await admin
     .from("profiles")
     .update({ account_status: "active" })

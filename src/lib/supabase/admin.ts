@@ -26,3 +26,15 @@ export function tryCreateAdminClient() {
     return null;
   }
 }
+
+export const SERVICE_ROLE_MISSING_MESSAGE =
+  "This server is missing SUPABASE_SERVICE_ROLE_KEY, so the change was not saved. Add that key in the Vercel project environment variables and redeploy.";
+
+/** Service-role client, or a message safe to show in the UI. */
+export function serviceRoleOrError() {
+  const client = tryCreateAdminClient();
+  if (!client) {
+    return { ok: false as const, error: SERVICE_ROLE_MISSING_MESSAGE };
+  }
+  return { ok: true as const, client };
+}
